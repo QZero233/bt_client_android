@@ -19,6 +19,7 @@ public class Datagram {
     public static final String IDENTIFIER_GET_USER_INFO="USIF";
     public static final String IDENTIFIER_GET_USERS_INDEX="USID";
     public static final String IDENTIFIER_UPDATE_USER_INFO="IFUP";
+    public static final String IDENTIFIER_MARK_READ="MKRD";
 
 
     public static final String IDENTIFIER_RETURN_MESSAGE_INDEX="MERI";

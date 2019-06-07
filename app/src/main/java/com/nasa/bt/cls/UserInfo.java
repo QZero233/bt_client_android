@@ -1,10 +1,12 @@
 package com.nasa.bt.cls;
 
+import java.io.Serializable;
+
 /**
  * 用户信息类
  * @author QZero
  */
-public class UserInfo {
+public class UserInfo implements Serializable {
 
     private String name;
     private String id;

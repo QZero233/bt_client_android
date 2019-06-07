@@ -184,10 +184,6 @@ public class MessageLoopService extends Service implements Runnable {
                             reConnect();
                             needReConnect=false;
                         }
-                        if(!running){
-                            socket.close();
-                            break;
-                        }
                     }catch (Exception e){
 
                     }
@@ -196,13 +192,13 @@ public class MessageLoopService extends Service implements Runnable {
             }
         }.start();
 
-        MessageIntent userInfoIntent=new MessageIntent(UUIDUtils.getRandomUUID(),Datagram.IDENTIFIER_RETURN_USER_INFO,defaultUserInfoProcessor,0,0);
-        MessageIntent userIndexIntent=new MessageIntent(UUIDUtils.getRandomUUID(),Datagram.IDENTIFIER_RETURN_USERS_INDEX,defaultUserIndexProcessor,0,0);
-        MessageIntent messageIntent=new MessageIntent(UUIDUtils.getRandomUUID(),Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,defaultMessageProcessor,0,0);
-        MessageIntent messageIndexIntent=new MessageIntent(UUIDUtils.getRandomUUID(),Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
-        MessageIntent messageStatusIntent=new MessageIntent(UUIDUtils.getRandomUUID(),Datagram.IDENTIFIER_REPORT,sendMessageReportHandler,0,0);
+        MessageIntent userInfoIntent=new MessageIntent("DEFAULT_USER_INFO",Datagram.IDENTIFIER_RETURN_USER_INFO,defaultUserInfoProcessor,0,0);
+        MessageIntent userIndexIntent=new MessageIntent("DEFAULT_USER_INDEX",Datagram.IDENTIFIER_RETURN_USERS_INDEX,defaultUserIndexProcessor,0,0);
+        MessageIntent messageIntent=new MessageIntent("DEFAULT_MESSAGE",Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,defaultMessageProcessor,0,0);
+        MessageIntent messageIndexIntent=new MessageIntent("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
+        MessageIntent messageStatusIntent=new MessageIntent("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_REPORT,sendMessageReportHandler,0,0);
 
-        MessageIntent reconnectIntent=new MessageIntent(UUIDUtils.getRandomUUID(),LoopResource.INBOX_IDENTIFIER_RECONNECT,reconnectHandler,0,0);
+        MessageIntent reconnectIntent=new MessageIntent("SERVICE_RECONNECT",LoopResource.INBOX_IDENTIFIER_RECONNECT,reconnectHandler,0,0);
 
         MessageLoop.addIntent(userInfoIntent);
         MessageLoop.addIntent(userIndexIntent);

@@ -24,10 +24,19 @@ public class MessageLoop {
         if(lists==null)
             lists=new List[4];
 
+
         if(lists[intent.getLevel()]==null){
             lists[intent.getLevel()]=new ArrayList<>();
         }
-        lists[intent.getLevel()].add(intent);
+        List<MessageIntent> list=lists[intent.getLevel()];
+        for(MessageIntent messageIntent:list){
+            if(messageIntent!=null && messageIntent.getId().equals(intent.getId())){
+                list.remove(messageIntent);
+                break;
+            }
+        }
+        list.add(intent);
+        lists[intent.getLevel()]=list;
         intents.put(identifier,lists);
     }
 

@@ -1,14 +1,18 @@
 package com.nasa.bt;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Message;
 import android.support.design.widget.TextInputEditText;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -18,6 +22,7 @@ import android.widget.Toast;
 
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
+import com.nasa.bt.cls.UserInfo;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
@@ -35,7 +40,8 @@ public class ChatActivity extends AppCompatActivity {
     private TextInputEditText et_msg;
     private ListView lv_msg;
     private CommonDbHelper msgHelper;
-    private String uidDst,uidMine;
+    private String uidDst;
+    private UserInfo userDst;
 
     private Handler changedHandler=new Handler(){
         @Override
@@ -43,6 +49,7 @@ public class ChatActivity extends AppCompatActivity {
             super.handleMessage(msg);
 
             reload();
+            markRead();
         }
     };
 
@@ -57,13 +64,45 @@ public class ChatActivity extends AppCompatActivity {
         et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
 
-        uidDst=getIntent().getStringExtra("uid");
-        uidMine= LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID);
+        userDst= (UserInfo) getIntent().getSerializableExtra("userDst");
+        if(userDst==null){
+            finish();
+            return;
+        }
+        uidDst=userDst.getId();
         msgHelper=new CommonDbHelper(this,Msg.class,"");
         reload();
 
         MessageLoop.addIntent(intentReport);
         MessageLoop.addIntent(intentMessage);
+        markRead();
+
+        setTitle("与 "+userDst.getName()+" 的加密通信");
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_chat, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if(item.getItemId()==R.id.m_clean){
+            AlertDialog.Builder builder=new AlertDialog.Builder(this);
+            builder.setMessage("确认删除，操作不可逆？");
+            builder.setNegativeButton("取消",null);
+            builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    msgHelper.execSql("DELETE FROM msg WHERE dstUid='"+uidDst+"' OR srcUid='"+uidDst+"'");
+                    reload();
+                    Toast.makeText(ChatActivity.this,"操作成功",Toast.LENGTH_SHORT).show();
+                }
+            });
+            builder.show();
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -74,12 +113,21 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void markRead(){
-
+        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+uidDst+"' AND status="+Msg.STATUS_UNREAD);
+        for(Msg msg:unread){
+            Map<String,byte[]> param=new HashMap<>();
+            param.put("msg_id",msg.getMsgId().getBytes());
+            param.put("src_uid",uidDst.getBytes());
+            Datagram datagram=new Datagram(Datagram.IDENTIFIER_MARK_READ,param);
+            LoopResource.sendDatagram(datagram);
+        }
+        msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE srcUid='"+uidDst+"' AND status="+Msg.STATUS_UNREAD);
     }
 
     private void reload(){
         List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+uidDst+"' or dstUid='"+uidDst+"' ORDER BY time");
         lv_msg.setAdapter(new ChatMsgAdapter(msgs,this,uidDst));
+        lv_msg.setSelection(lv_msg.getCount() - 1);
     }
 
     public void send(View v){
@@ -148,7 +196,8 @@ class ChatMsgAdapter extends BaseAdapter{
             tv_msg.setGravity(Gravity.RIGHT);
             tv_time.setGravity(Gravity.RIGHT);
             tv_status.setGravity(Gravity.RIGHT);
-        }
+        }else
+            tv_status.setVisibility(View.GONE);
 
         tv_msg.setText(msg.getContent());
 

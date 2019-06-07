@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
 
             if(params.get("action_identifier").equalsIgnoreCase(Datagram.IDENTIFIER_UPDATE_USER_INFO)){
                 pullUserInfo();
+                MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intent.getId(),1);
                 return;
             }
 
@@ -71,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this,"身份验证成功",Toast.LENGTH_SHORT).show();
 
             updateUserInfo();
+
         }
     };
 
@@ -90,6 +92,9 @@ public class MainActivity extends AppCompatActivity {
                     //TODO 取消进度条
                     Toast.makeText(MainActivity.this,"用户信息同步完成",Toast.LENGTH_SHORT).show();
                     doMain();
+
+                    MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USERS_INDEX,intentUserIndex.getId(),1);
+                    MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USER_INFO,intentUserInfo.getId(),1);
                 }
             }
 
@@ -123,18 +128,14 @@ public class MainActivity extends AppCompatActivity {
         LoopResource.sendDatagram(datagramPullUser);
     }
 
-    MessageIntent intent=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_REPORT,handler,0,1);
-    MessageIntent intentUserIndex=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_RETURN_USERS_INDEX,userHandler,0,1);
-    MessageIntent intentUserInfo=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_RETURN_USER_INFO,userHandler,0,1);
-    MessageIntent intentMessage=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,msgHandler,0,1);
+    MessageIntent intent=new MessageIntent("MAIN_REPORT", Datagram.IDENTIFIER_REPORT,handler,0,1);
+    MessageIntent intentUserIndex=new MessageIntent("MAIN_USER_INDEX", Datagram.IDENTIFIER_RETURN_USERS_INDEX,userHandler,0,1);
+    MessageIntent intentUserInfo=new MessageIntent("MAIN_USER_INFO", Datagram.IDENTIFIER_RETURN_USER_INFO,userHandler,0,1);
+    MessageIntent intentMessage=new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,msgHandler,0,1);
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intent.getId(),1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USERS_INDEX,intentUserIndex.getId(),1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USER_INFO,intentUserInfo.getId(),1);
         MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,intentMessage.getId(),1);
     }
 
@@ -170,36 +171,33 @@ public class MainActivity extends AppCompatActivity {
         stopService(new Intent(this, MessageLoopService.class));
         startService(new Intent(this, MessageLoopService.class));
         LoopResource.cleanUnsent();
+
+        userHelper=new CommonDbHelper(this,UserInfo.class,"");
+        pb_main=findViewById(R.id.pb_main);
+        lv_users=findViewById(R.id.lv_users);
     }
 
     private void doMain(){
-        pb_main=findViewById(R.id.pb_main);
-        lv_users=findViewById(R.id.lv_users);
-
         pb_main.setVisibility(View.GONE);
         lv_users.setClickable(true);
 
         lv_users.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                String uid=users.get(i).getId();
                 Intent intent=new Intent(MainActivity.this,ChatActivity.class);
-                intent.putExtra("uid",uid);
+                intent.putExtra("userDst",users.get(i));
                 startActivity(intent);
             }
         });
-
-        userHelper=new CommonDbHelper(this,UserInfo.class,"");
         reloadUserInfo();
+
+        setTitle("BugTelegram NASA内测版");
     }
 
     private void reloadUserInfo(){
-        users=userHelper.query();
+        users=userHelper.query("SELECT * FROM userinfo WHERE id!='"+LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID)+"'");
         lv_users.setAdapter(new MainUserAdapter(users,this));
     }
-
-
-
 }
 
 class MainUserAdapter extends BaseAdapter{
@@ -234,6 +232,7 @@ class MainUserAdapter extends BaseAdapter{
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
         UserInfo user=users.get(i);
+
 
         View v=View.inflate(context,R.layout.view_main_user,null);
 
