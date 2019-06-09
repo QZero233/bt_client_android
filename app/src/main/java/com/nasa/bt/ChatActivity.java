@@ -23,10 +23,13 @@ import android.widget.Toast;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.crypt.CryptModule;
+import com.nasa.bt.crypt.CryptModuleFactory;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.utils.CommonDbHelper;
+import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
@@ -43,11 +46,12 @@ public class ChatActivity extends AppCompatActivity {
     private String uidDst;
     private UserInfo userDst;
 
+    private CryptModule chatModule;
+
     private Handler changedHandler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-
             reload();
             markRead();
         }
@@ -64,13 +68,15 @@ public class ChatActivity extends AppCompatActivity {
         et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
 
+        chatModule= CryptModuleFactory.getCryptModule(CryptModuleFactory.CURRENT_CRYPT_MODULE_CHAT);
+
         userDst= (UserInfo) getIntent().getSerializableExtra("userDst");
         if(userDst==null){
             finish();
             return;
         }
         uidDst=userDst.getId();
-        msgHelper=new CommonDbHelper(this,Msg.class,"");
+        msgHelper= LocalDbUtils.getMsgHelper(this);
         reload();
 
         MessageLoop.addIntent(intentReport);
@@ -137,7 +143,16 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
+        Msg msgInsert=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
+
+        if(chatModule!=null){
+            byte[] encrypted=chatModule.doEncrypt(content.getBytes(),userDst.getKey(),null);
+            if(encrypted!=null)
+                content=new String(encrypted);
+        }
+
+        Msg msg=new Msg(msgInsert.getMsgId(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
+
 
         Map<String,byte[]> sendParam=new HashMap<>();
         sendParam.put("msg_id", msg.getMsgId().getBytes());
@@ -147,7 +162,7 @@ public class ChatActivity extends AppCompatActivity {
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
 
-        msgHelper.insert(msg);
+        msgHelper.insert(msgInsert);
         reload();
     }
 }

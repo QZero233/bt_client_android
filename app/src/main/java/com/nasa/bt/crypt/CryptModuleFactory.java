@@ -7,9 +7,14 @@ package com.nasa.bt.crypt;
 public class CryptModuleFactory {
 
     /**
-     * 当前使用的加密模块
+     * 当前与服务器通信使用的加密模块
      */
     public static final String CURRENT_CRYPT_MODULE="NONE";
+
+    /**
+     * 当前与聊天使用的加密模块
+     */
+    public static final String CURRENT_CRYPT_MODULE_CHAT="RSA";
 
     /**
      * 不加密，明文传输
@@ -35,6 +40,8 @@ public class CryptModuleFactory {
 
         if(name.equalsIgnoreCase(MODULE_NONE))
             return new CryptModuleNone();
+        else if(name.equalsIgnoreCase(MODULE_RSA))
+            return new CryptModuleRSA();
 
         return null;
     }

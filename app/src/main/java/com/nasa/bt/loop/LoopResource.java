@@ -1,5 +1,7 @@
 package com.nasa.bt.loop;
 
+import android.util.Log;
+
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.LoginInfo;
 
@@ -29,6 +31,7 @@ public class LoopResource {
                 synchronized (unsent){
                     if(!MessageLoopService.instance.sendDatagram(datagram)){
                         unsent.add(datagram);
+                        Log.e("NASA","数据包发送失败 "+datagram);
                         Datagram reconnect=new Datagram(INBOX_IDENTIFIER_RECONNECT,null);
                         MessageLoop.processDatagram(reconnect);
                     }

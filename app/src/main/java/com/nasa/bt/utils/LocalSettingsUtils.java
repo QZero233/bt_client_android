@@ -8,9 +8,9 @@ public class LocalSettingsUtils {
     public static final String FILE_NAME="localSettings";
 
     public static final String FIELD_UID="uid";
-    public static final String FIELD_SID="sid";
     public static final String FIELD_NAME="name";
     public static final String FIELD_CODE_HASH="codeHash";
+    public static final String FIELD_SERVER_IP="serverIp";
 
     public static boolean save(Context context,String field, String value){
         SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);

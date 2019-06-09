@@ -7,6 +7,10 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.Toast;
 
+import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.crypt.SHA256Utils;
+import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
@@ -26,6 +30,7 @@ public class AuthInfoActivity extends AppCompatActivity {
     public void confirm(View v){
         String name=et_name.getText().toString();
         String code=et_code.getText().toString();
+        code= SHA256Utils.getSHA256InHex(code);
 
         if(TextUtils.isEmpty(name) || TextUtils.isEmpty(code)){
             Toast.makeText(this,"请输入正确信息",Toast.LENGTH_SHORT).show();
@@ -33,10 +38,12 @@ public class AuthInfoActivity extends AppCompatActivity {
         }
 
         LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_NAME,name);
-        LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,code);//TODO 取hash
-        LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_SID,"");
+        LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,code);
         Toast.makeText(this,"设置成功，正在尝试重连",Toast.LENGTH_SHORT).show();
-//        MessageLoopService.instance.needReConnect=true;
+
+        Datagram datagramReconnect=new Datagram(LoopResource.INBOX_IDENTIFIER_RECONNECT,null);
+        MessageLoop.processDatagram(datagramReconnect);
+
         finish();
     }
 
