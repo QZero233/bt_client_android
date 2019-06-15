@@ -1,8 +1,10 @@
 package com.nasa.bt;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -115,8 +117,19 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-        Contact contact=contactList.get(i);
-
+        final Contact contact=contactList.get(i);
+        AlertDialog.Builder builder=new AlertDialog.Builder(this);
+        builder.setMessage("是否删除联系人 "+contact.getName()+" （删除后会保留本地聊天记录）");
+        builder.setNegativeButton("取消",null);
+        builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                contactHelper.execSql("DELETE FROM contact WHERE name='"+contact.getName()+"'");
+                reload();
+                Toast.makeText(ContactActivity.this,"删除成功",Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.show();
     }
 }
 

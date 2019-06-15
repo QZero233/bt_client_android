@@ -8,9 +8,7 @@ import android.os.Message;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
-import com.nasa.bt.AuthInfoActivity;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.LoginInfo;
 import com.nasa.bt.crypt.KeyUtils;
@@ -83,10 +81,11 @@ public class MessageLoopService extends Service implements Runnable {
         MessageLoop.addIntent(reconnectIntent);
     }
 
-    public void reConnect() {
+    public synchronized void reConnect() {
         try {
             socket.close();
         }catch (Exception e){
+
         }
 
         new Thread(this).start();
@@ -156,11 +155,6 @@ public class MessageLoopService extends Service implements Runnable {
             Log.e("NASA", "连接完成，开始进行身份验证");
             if (!doAuth()) {
                 Log.e("NASA", "身份验证失败，继续准备重连");
-
-                //LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_NAME,"");
-                //LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,"");
-                //Toast.makeText(this,"身份验证失败，请重新输入信息",Toast.LENGTH_SHORT).show();
-                //startActivity(new Intent(this, AuthInfoActivity.class));
                 needReConnect = true;
                 return;
             }

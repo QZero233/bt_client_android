@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
@@ -36,35 +37,12 @@ import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
 
-    private int userCount=0;
-    private int currentCount=0;
-    Handler userHandler=new Handler(){
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            if(datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_RETURN_USERS_INDEX)){
-                userCount=datagram.getParamsAsString().get("index").length()/36;
-            }else{
-                currentCount++;
-                if(currentCount>=userCount){
-                    Toast.makeText(MainActivity.this,"用户信息同步完成",Toast.LENGTH_SHORT).show();
-                    doMain();
-
-                    MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USERS_INDEX,intentUserIndex.getId(),1);
-                    MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USER_INFO,intentUserInfo.getId(),1);
-                }
-            }
-
-        }
-    };
-
-    Handler msgHandler=new Handler(){
+    private Handler msgHandler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
@@ -72,23 +50,32 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private ProgressBar pb_main;
-    private ListView lv_users;
-    private List<UserInfo> users;
-    private CommonDbHelper userHelper;
+    private Handler msgIndexHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
 
-    MessageIntent intentUserIndex=new MessageIntent("MAIN_USER_INDEX", Datagram.IDENTIFIER_RETURN_USERS_INDEX,userHandler,0,1);
-    MessageIntent intentUserInfo=new MessageIntent("MAIN_USER_INFO", Datagram.IDENTIFIER_RETURN_USER_INFO,userHandler,0,1);
+            sl_main.setRefreshing(false);
+            reloadUserInfo();
+            Toast.makeText(MainActivity.this,"刷新成功",Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    private ListView lv_users;
+    private SwipeRefreshLayout sl_main;
+
+    private List<UserInfo> users;
+
     MessageIntent intentMessage=new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,msgHandler,0,1);
+    MessageIntent intentMessageIndex=new MessageIntent("MAIN_MESSAGE_INDEX", Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,msgIndexHandler,0,1);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        MessageLoop.addIntent(intentUserIndex);
-        MessageLoop.addIntent(intentUserInfo);
         MessageLoop.addIntent(intentMessage);
+        MessageLoop.addIntent(intentMessageIndex);
 
         KeyUtils.initContext(this);
 
@@ -106,15 +93,10 @@ public class MainActivity extends AppCompatActivity {
         startService(new Intent(this, MessageLoopService.class));
         LoopResource.cleanUnsent();
 
-        userHelper= LocalDbUtils.getUserInfoHelper(this);
-        pb_main=findViewById(R.id.pb_main);
         lv_users=findViewById(R.id.lv_users);
-    }
+        sl_main=findViewById(R.id.sl_main);
 
-    private void doMain(){
-        pb_main.setVisibility(View.GONE);
-        lv_users.setClickable(true);
-
+        sl_main.setOnRefreshListener(this);
         lv_users.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
@@ -124,12 +106,19 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         reloadUserInfo();
-
         setTitle("BugTelegram NASA内测版");
     }
 
     private void reloadUserInfo(){
-        users=userHelper.query("SELECT * FROM userinfo WHERE id!='"+LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID)+"'");
+        //users=userHelper.query("SELECT * FROM userinfo WHERE id!='"+LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID)+"'");
+        //TODO 目前的解决方案是Contact手动转UserInfo，以后再改
+        users=new ArrayList<>();
+        List<Contact> contactList=LocalDbUtils.getContactHelper(this).query();
+        if(contactList!=null){
+            for(Contact contact:contactList){
+                users.add(new UserInfo(contact.getName(),contact.getUid()));
+            }
+        }
         lv_users.setAdapter(new MainUserAdapter(users,this));
     }
 
@@ -183,6 +172,11 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    public void onRefresh() {
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX,null);
+        LoopResource.sendDatagram(datagram);
+    }
 }
 
 class MainUserAdapter extends BaseAdapter{
@@ -226,8 +220,14 @@ class MainUserAdapter extends BaseAdapter{
 
         List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' and status="+Msg.STATUS_UNREAD+" ORDER BY time");
         if(msgs==null || msgs.isEmpty()){
-            tv_msg.setText("无消息");
-            tv_time.setVisibility(View.GONE);
+            Msg msg= (Msg) msgHelper.querySingle("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' or dstUid='"+user.getId()+"' ORDER BY time");
+            if(msg==null){
+                tv_msg.setText("无消息");
+                tv_time.setVisibility(View.GONE);
+            }else{
+                tv_msg.setText(msg.getContent());
+                tv_time.setText(TimeUtils.toStandardTime(msg.getTime()));
+            }
         }else{
             tv_msg.setText("有 "+msgs.size()+" 条未读消息");
             tv_msg.setTextColor(Color.RED);

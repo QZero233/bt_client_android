@@ -159,7 +159,6 @@ public class ProcessorHandlers {
             }
 
             Toast.makeText(context,"身份验证成功",Toast.LENGTH_SHORT).show();
-            pullUserInfo();
         }
     };
 
@@ -187,11 +186,4 @@ public class ProcessorHandlers {
         MessageLoop.addIntent(messageStatusIntent);
         MessageLoop.addIntent(authReport);
     }
-
-    private void pullUserInfo(){
-        Datagram datagramPullUser=new Datagram(Datagram.IDENTIFIER_GET_USERS_INDEX,null);
-        LoopResource.sendDatagram(datagramPullUser);
-    }
-
-
 }
