@@ -16,6 +16,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -40,13 +41,11 @@ import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity {
 
-    private TextInputEditText et_msg;
+    private EditText et_msg;
     private ListView lv_msg;
     private CommonDbHelper msgHelper;
     private String uidDst;
     private UserInfo userDst;
-
-    private CryptModule chatModule;
 
     private Handler changedHandler=new Handler(){
         @Override
@@ -67,8 +66,6 @@ public class ChatActivity extends AppCompatActivity {
 
         et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
-
-        chatModule= CryptModuleFactory.getCryptModule(CryptModuleFactory.CURRENT_CRYPT_MODULE_CHAT);
 
         userDst= (UserInfo) getIntent().getSerializableExtra("userDst");
         if(userDst==null){
@@ -143,16 +140,7 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        Msg msgInsert=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
-
-        if(chatModule!=null){
-            byte[] encrypted=chatModule.doEncrypt(content.getBytes(),userDst.getKey(),null);
-            if(encrypted!=null)
-                content=new String(encrypted);
-        }
-
-        Msg msg=new Msg(msgInsert.getMsgId(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
-
+        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
 
         Map<String,byte[]> sendParam=new HashMap<>();
         sendParam.put("msg_id", msg.getMsgId().getBytes());
@@ -161,8 +149,7 @@ public class ChatActivity extends AppCompatActivity {
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,sendParam);
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
-
-        msgHelper.insert(msgInsert);
+        msgHelper.insert(msg);
         reload();
     }
 }

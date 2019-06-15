@@ -25,17 +25,28 @@ public class AuthInfoActivity extends AppCompatActivity {
 
         et_name=findViewById(R.id.et_name);
         et_code=findViewById(R.id.et_code);
+
+        String nameLast=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME_LAST);
+        String codeLast=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_CODE_LAST);
+        if(!TextUtils.isEmpty(nameLast))
+            et_name.setText(nameLast);
+        if(!TextUtils.isEmpty(codeLast))
+            et_code.setText(codeLast);
     }
 
     public void confirm(View v){
         String name=et_name.getText().toString();
         String code=et_code.getText().toString();
-        code= SHA256Utils.getSHA256InHex(code);
 
         if(TextUtils.isEmpty(name) || TextUtils.isEmpty(code)){
             Toast.makeText(this,"请输入正确信息",Toast.LENGTH_SHORT).show();
             return;
         }
+
+        LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_LAST,code);
+        LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_NAME_LAST,name);
+
+        code= SHA256Utils.getSHA256InHex(code);
 
         LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_NAME,name);
         LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,code);

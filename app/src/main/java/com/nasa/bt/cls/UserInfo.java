@@ -1,7 +1,10 @@
 package com.nasa.bt.cls;
 
+import com.nasa.bt.annotations.ClassVerCode;
+
 import java.io.Serializable;
 
+@ClassVerCode(2)
 /**
  * 用户信息类
  * @author QZero
@@ -10,16 +13,10 @@ public class UserInfo implements Serializable {
 
     private String name;
     private String id;
-    private String key;
 
     public UserInfo() {
     }
 
-    public UserInfo(String name, String id, String key) {
-        this.name = name;
-        this.id = id;
-        this.key = key;
-    }
 
     public String getName() {
         return name;
@@ -37,20 +34,8 @@ public class UserInfo implements Serializable {
         this.id = id;
     }
 
-    public String getKey() {
-        return key;
-    }
-
-    public void setKey(String key) {
-        this.key = key;
-    }
-
-    @Override
-    public String toString() {
-        return "UserInfo{" +
-                "name='" + name + '\'' +
-                ", id='" + id + '\'' +
-                ", key='" + key + '\'' +
-                '}';
+    public UserInfo(String name, String id) {
+        this.name = name;
+        this.id = id;
     }
 }

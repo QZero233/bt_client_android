@@ -22,6 +22,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.nasa.bt.cls.Contact;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
@@ -166,6 +167,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
             builder.show();
+        }else if(item.getItemId()==R.id.m_reset_key){
+            try {
+                KeyUtils utils=KeyUtils.getInstance();
+                utils.genKeySet();
+                utils.saveKeySet();
+                Toast.makeText(this,"重置成功",Toast.LENGTH_SHORT).show();
+                finish();
+            }catch (Exception e){
+                Toast.makeText(this,"重置失败",Toast.LENGTH_SHORT).show();
+            }
+        }else if(item.getItemId()==R.id.m_contact){
+            startActivity(new Intent(this,ContactActivity.class));
         }
         return super.onOptionsItemSelected(item);
     }
@@ -205,10 +218,7 @@ class MainUserAdapter extends BaseAdapter{
     public View getView(int i, View view, ViewGroup viewGroup) {
         UserInfo user=users.get(i);
 
-
         View v=View.inflate(context,R.layout.view_main_user,null);
-
-
 
         TextView tv_name=v.findViewById(R.id.tv_name);
         TextView tv_msg=v.findViewById(R.id.tv_msg);

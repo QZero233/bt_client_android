@@ -34,10 +34,13 @@ public class ProcessorHandlers {
             Datagram datagram= (Datagram) msg.obj;
 
             Map<String,String> params=datagram.getParamsAsString();
+
+            if(params.get("exist").equals("0"))
+                return;
+
             String uid=params.get("uid");
             String name=params.get("name");
-            String key=params.get("key");
-            UserInfo info=new UserInfo(name,uid,key);
+            UserInfo info=new UserInfo(name,uid);
 
             if(name.equals(LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_NAME)))
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,uid);
@@ -98,13 +101,6 @@ public class ProcessorHandlers {
             String srcId=params.get("src_uid");
             String msgContent=params.get("msg_content");
 
-            //解密content
-            if(chatModule!=null){
-                byte[] decrypted=chatModule.doDecrypt(msgContent.getBytes(),null,null);
-                if(decrypted!=null)
-                    msgContent=new String(decrypted);
-            }
-
             long time= SocketIOHelper.byteArrayToLong(datagram.getParams().get("time"));
 
             Msg msgGot=new Msg(msgId,srcId,"",msgContent,time,Msg.STATUS_UNREAD);
@@ -121,7 +117,6 @@ public class ProcessorHandlers {
         }
     };
 
-    private CryptModule chatModule;
 
     private Handler defaultSendMessageReportHandler =new Handler(){
         @Override
@@ -165,7 +160,6 @@ public class ProcessorHandlers {
 
             Toast.makeText(context,"身份验证成功",Toast.LENGTH_SHORT).show();
             pullUserInfo();
-            updateRemoteKey();
         }
     };
 
@@ -181,7 +175,6 @@ public class ProcessorHandlers {
     public ProcessorHandlers(Context context) {
         this.context = context;
 
-        chatModule= CryptModuleFactory.getCryptModule(CryptModuleFactory.CURRENT_CRYPT_MODULE_CHAT);
         msgHelper= LocalDbUtils.getMsgHelper(context);
         userHelper=LocalDbUtils.getUserInfoHelper(context);
     }
@@ -200,19 +193,5 @@ public class ProcessorHandlers {
         LoopResource.sendDatagram(datagramPullUser);
     }
 
-    private void updateRemoteKey(){
-        String key;
-        try {
-            key= KeyUtils.getInstance().getPub();
-        }catch (Exception e){
-            Toast.makeText(context,"公钥获取失败",Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Map<String,byte[]> params=new HashMap<>();
-        params.put("key",key.getBytes());
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_UPDATE_USER_INFO,params);
-        LoopResource.sendDatagram(datagram);
-    }
 
 }

@@ -8,9 +8,12 @@ import android.os.Message;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
+import com.nasa.bt.AuthInfoActivity;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.LoginInfo;
+import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
@@ -20,7 +23,7 @@ import java.util.Map;
 
 public class MessageLoopService extends Service implements Runnable {
 
-    public static final String SERVER_IP_DEFAULT = "10.0.2.2";
+    public static final String SERVER_IP_DEFAULT = "10.0.2.2";//208.167.242.129
     private static final int SERVER_PORT = 8848;
     private Socket socket;
     private SocketIOHelper helper;
@@ -71,6 +74,7 @@ public class MessageLoopService extends Service implements Runnable {
 
                     }
                 }
+
             }
         }.start();
 
@@ -82,7 +86,7 @@ public class MessageLoopService extends Service implements Runnable {
     public void reConnect() {
         try {
             socket.close();
-        } catch (Exception e) {
+        }catch (Exception e){
         }
 
         new Thread(this).start();
@@ -134,9 +138,29 @@ public class MessageLoopService extends Service implements Runnable {
 
             socket = new Socket(ip, SERVER_PORT);
             helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
+
+            while(true){
+                //接受对方传来的公钥
+                Datagram datagram=helper.readIs();
+                if(datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE))
+                    break;
+            }
+
+            KeyUtils keyUtils=KeyUtils.getInstance();
+            helper.setPrivateKey(keyUtils.getPri());
+            while(!helper.sendPublicKey(keyUtils.getPub())){
+                Log.e("NASA","交换公钥失败，再次尝试");
+                Thread.sleep(1000);
+            }
+
             Log.e("NASA", "连接完成，开始进行身份验证");
             if (!doAuth()) {
                 Log.e("NASA", "身份验证失败，继续准备重连");
+
+                //LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_NAME,"");
+                //LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,"");
+                //Toast.makeText(this,"身份验证失败，请重新输入信息",Toast.LENGTH_SHORT).show();
+                //startActivity(new Intent(this, AuthInfoActivity.class));
                 needReConnect = true;
                 return;
             }

@@ -9,7 +9,7 @@ public class CryptModuleFactory {
     /**
      * 当前与服务器通信使用的加密模块
      */
-    public static final String CURRENT_CRYPT_MODULE="NONE";
+    public static final String CURRENT_CRYPT_MODULE="RSA";
 
     /**
      * 当前与聊天使用的加密模块

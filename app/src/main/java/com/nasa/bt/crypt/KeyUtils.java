@@ -29,7 +29,7 @@ public class KeyUtils {
         }
     }
 
-    private void genKeySet() throws Exception{
+    public void genKeySet() throws Exception{
         rsaUtils=new RSAUtils();
     }
 
@@ -37,7 +37,7 @@ public class KeyUtils {
         return rsaUtils;
     }
 
-    private boolean saveKeySet(){
+    public boolean saveKeySet(){
         if(rsaUtils==null)
             return false;
         RSAKeySet keySet=new RSAKeySet(rsaUtils.getPub(),rsaUtils.getPri());

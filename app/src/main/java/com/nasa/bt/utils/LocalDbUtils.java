@@ -3,6 +3,7 @@ package com.nasa.bt.utils;
 import android.content.Context;
 import android.text.TextUtils;
 
+import com.nasa.bt.cls.Contact;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
 import com.nasa.bt.loop.MessageLoopService;
@@ -22,6 +23,10 @@ public class LocalDbUtils {
 
     public static CommonDbHelper getUserInfoHelper(Context context){
         return new CommonDbHelper(context, UserInfo.class,getParam(context));
+    }
+
+    public static CommonDbHelper getContactHelper(Context context){
+        return new CommonDbHelper(context, Contact.class,getParam(context));
     }
 
 }

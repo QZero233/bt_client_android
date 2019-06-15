@@ -3,6 +3,7 @@ package com.nasa.bt.socket;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.CryptModule;
 import com.nasa.bt.crypt.CryptModuleFactory;
+import com.nasa.bt.crypt.CryptModuleRSA;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -111,6 +112,10 @@ public class SocketIOHelper {
                 //数据包总长度
                 is.read(intTmpBuf);
                 int dataLength=byteArrayToInt(intTmpBuf);
+
+                if(dataLength<=0)
+                    return null;
+
                 //明文信息总长度
                 is.read(intTmpBuf);
                 int contentLength=byteArrayToInt(intTmpBuf);
@@ -123,7 +128,11 @@ public class SocketIOHelper {
                 }
 
                 //全部内容读取完成，开始解密数据包
-                byte[] decrypted=cryptModule.doDecrypt(tmpBuf.toByteArray(),KEY_DECRYPT,null);
+                byte[] decrypted=cryptModule.doDecrypt(tmpBuf.toByteArray(),null,null);
+                //解密失败返回空数据包
+                if(decrypted==null){
+                    return new Datagram(Datagram.IDENTIFIER_NONE,null);
+                }
                 ByteArrayInputStream inputBuf=new ByteArrayInputStream(decrypted,0,contentLength);
 
                 //读取标识符
@@ -163,6 +172,7 @@ public class SocketIOHelper {
                 String identifier=new String(identifierBuf);
                 Datagram datagram=new Datagram(identifier,verCode,byteArrayToLong(timeBuf),params);
 
+                System.out.println("DEBUG::"+datagram);//FIXME REMOVE
 
                 return datagram;
             }catch (Exception e) {
@@ -210,7 +220,10 @@ public class SocketIOHelper {
                     tmpBuf.write(paramContentBuf);
                 }
 
-                byte[] encryptedBuf=cryptModule.doEncrypt(tmpBuf.toByteArray(),KEY_ENCRYPT,null);
+                byte[] encryptedBuf=cryptModule.doEncrypt(tmpBuf.toByteArray(),null,null);
+                //加密失败
+                if(encryptedBuf==null)
+                    return false;
                 os.write(intToByteArray(encryptedBuf.length));
                 os.write(intToByteArray(tmpBuf.size()));
                 os.write(encryptedBuf);
@@ -221,5 +234,37 @@ public class SocketIOHelper {
                 return false;
             }
         }
+    }
+
+    /**
+     * 向服务器发送自己的公钥
+     * @param key 公钥
+     * @return 是否成功
+     */
+    public boolean sendPublicKey(String key){
+        if(key==null || key.equals(""))
+            return false;
+
+        try {
+            ByteArrayOutputStream outputStream=new ByteArrayOutputStream();
+            outputStream.write(Datagram.IDENTIFIER_CHANGE_KEY.getBytes());
+            outputStream.write(key.getBytes());
+
+            os.write(intToByteArray(outputStream.size()));
+            os.write(intToByteArray(outputStream.size()));
+            os.write(outputStream.toByteArray());
+            return true;
+        }catch (Exception e){
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 设置私钥
+     * @param key 私钥
+     */
+    public void setPrivateKey(String key){
+        ((CryptModuleRSA)cryptModule).setMyPrivateKey(key);
     }
 }

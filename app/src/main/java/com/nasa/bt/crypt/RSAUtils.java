@@ -46,11 +46,24 @@ public class RSAUtils {
 
         keyFactory = KeyFactory.getInstance(RSA);
 
+        if(pub==null || pri==null)
+            return;
+
         //加载公钥私钥
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pub,Base64.DEFAULT));
+        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pub,Base64.NO_WRAP));
         publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
 
-        PKCS8EncodedKeySpec pKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(Base64.decode(pri,Base64.DEFAULT));
+        PKCS8EncodedKeySpec pKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(Base64.decode(pri,Base64.NO_WRAP));
+        privateKey = (RSAPrivateKey) keyFactory.generatePrivate(pKCS8EncodedKeySpec);
+    }
+
+    public void loadPublicKey(String pubKey) throws Exception{
+        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pubKey,Base64.NO_WRAP));
+        publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
+    }
+
+    public void loadPrivateKey(String priKey) throws Exception{
+        PKCS8EncodedKeySpec pKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(Base64.decode(priKey,Base64.NO_WRAP));
         privateKey = (RSAPrivateKey) keyFactory.generatePrivate(pKCS8EncodedKeySpec);
     }
 
@@ -63,7 +76,7 @@ public class RSAUtils {
         keyFactory = KeyFactory.getInstance(RSA);
         this.pub=pub;
         //加载公钥
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pub,Base64.DEFAULT));
+        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pub,Base64.NO_WRAP));
         publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
     }
 
@@ -88,13 +101,13 @@ public class RSAUtils {
         publicKey = (RSAPublicKey) keyPair.getPublic();
 
         // 将公钥转换为 String 类型
-        pub = Base64.encodeToString(keyPair.getPublic().getEncoded(),Base64.DEFAULT);
+        pub = Base64.encodeToString(keyPair.getPublic().getEncoded(),Base64.NO_WRAP);
 
         // 得到私钥
         privateKey = (RSAPrivateKey) keyPair.getPrivate();
 
         // 将私钥转换为 String 类型
-        pri = Base64.encodeToString(keyPair.getPrivate().getEncoded(),Base64.DEFAULT);
+        pri = Base64.encodeToString(keyPair.getPrivate().getEncoded(),Base64.NO_WRAP);
 
     }
 
@@ -186,7 +199,7 @@ public class RSAUtils {
             outputStream.write(publicEncryptMini(tmpBuf));
             currentIndex += CLEAR_MAX_SIZE;
         }
-        return Base64.encodeToString(outputStream.toByteArray(),Base64.DEFAULT);
+        return Base64.encodeToString(outputStream.toByteArray(),Base64.NO_WRAP);
     }
 
     /**
@@ -213,7 +226,7 @@ public class RSAUtils {
             outputStream.write(privateEncryptMini(tmpBuf));
             currentIndex += CLEAR_MAX_SIZE;
         }
-        return Base64.encodeToString(outputStream.toByteArray(),Base64.DEFAULT);
+        return Base64.encodeToString(outputStream.toByteArray(),Base64.NO_WRAP);
     }
 
     /**
@@ -224,7 +237,7 @@ public class RSAUtils {
      * @throws Exception 解密过程中的异常信息
      */
     public String privateDecrypt(String cipherText) throws Exception {
-        byte[] buf=Base64.decode(cipherText,Base64.DEFAULT);
+        byte[] buf=Base64.decode(cipherText,Base64.NO_WRAP);
         ByteArrayInputStream inputStream=new ByteArrayInputStream(buf);
         ByteArrayOutputStream outputStream=new ByteArrayOutputStream();
 
@@ -251,7 +264,7 @@ public class RSAUtils {
      * @throws Exception 解密过程中的异常信息
      */
     public String publicDecrypt(String cipherText) throws Exception {
-        byte[] buf=Base64.decode(cipherText,Base64.DEFAULT);
+        byte[] buf=Base64.decode(cipherText,Base64.NO_WRAP);
         ByteArrayInputStream inputStream=new ByteArrayInputStream(buf);
         ByteArrayOutputStream outputStream=new ByteArrayOutputStream();
 
