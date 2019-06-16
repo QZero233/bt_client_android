@@ -91,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             return;
         }
 
+        stopService(new Intent(this, MessageLoopService.class));
         startService(new Intent(this, MessageLoopService.class));
         LoopResource.cleanUnsent();
 
@@ -117,6 +118,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         List<Contact> contactList=LocalDbUtils.getContactHelper(this).query();
         if(contactList!=null){
             for(Contact contact:contactList){
+                if(contact.getName().equals(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME)))
+                    continue;
                 users.add(new UserInfo(contact.getName(),contact.getUid()));
             }
         }

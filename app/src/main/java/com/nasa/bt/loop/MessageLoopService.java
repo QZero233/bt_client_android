@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
@@ -23,12 +24,11 @@ public class MessageLoopService extends Service {
     public static final String SERVER_IP_DEFAULT = "208.167.242.129";//208.167.242.129
     public static final int SERVER_PORT = 8848;
 
+    private ProcessorHandlers handlers;
 
     public static MessageLoopService instance = null;
 
     public boolean needReConnect = false;
-
-    private ProcessorHandlers handlers;
 
     private Handler reconnectHandler = new Handler() {
         @Override
@@ -50,8 +50,8 @@ public class MessageLoopService extends Service {
     public void onCreate() {
         super.onCreate();
         instance = this;
-        handlers = new ProcessorHandlers(this);
-        handlers.addDefaultIntents();
+
+        rebind();
 
         connection = new ClientThread(this);
         connection.start();
@@ -83,11 +83,18 @@ public class MessageLoopService extends Service {
     }
 
     public synchronized void reConnect() {
-        //connection.reconnect();
+        connection.reconnect();
     }
 
-    public synchronized void onError() {
-        needReConnect = true;
+    public void rebind(){
+        handlers=new ProcessorHandlers(this);
+        handlers.addDefaultIntents();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        connection.stopConnection();
     }
 
     public boolean sendDatagram(Datagram datagram){
@@ -101,19 +108,37 @@ class ClientThread extends Thread {
     private MessageLoopService parent;
     private Socket socket;
     private SocketIOHelper helper;
-
-
+    private boolean running=true;
 
     public ClientThread(MessageLoopService parent) {
         this.parent = parent;
     }
 
+    public void stopConnection(){
+        running=false;
+        try{
+            socket.close();
+        }catch (Exception e){
+
+        }
+    }
+
+    public void reconnect(){
+        try {
+            socket.close();
+        }catch (Exception e){
+
+        }
+        parent.rebind();
+    }
 
     @Override
     public void run() {
         super.run();
 
-        while(true){
+        Looper.prepare();
+
+        while(running){
             doProcess();
             Log.e("NASA", "正在尝试断线重连 ");
             try {
@@ -122,6 +147,8 @@ class ClientThread extends Thread {
 
             }
         }
+
+        Log.e("NASA","线程自然死亡......");
     }
 
     private void doProcess(){
@@ -153,7 +180,6 @@ class ClientThread extends Thread {
             Log.e("NASA", "连接完成，开始进行身份验证");
             if (!doAuth()) {
                 Log.e("NASA", "身份验证失败，继续准备重连");
-                parent.onError();
                 return;
             }
 

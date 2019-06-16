@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.nasa.bt.AuthInfoActivity;
@@ -136,6 +137,7 @@ public class ProcessorHandlers {
 
             String id=params.get("reply_id");
             msgHelper.execSql("UPDATE msg SET status="+status+" WHERE msgId='"+id+"'");
+            Log.e("NASA","消息 "+id+" 状态反馈 "+status);
         }
     };
 
@@ -158,7 +160,7 @@ public class ProcessorHandlers {
                 return;
             }
 
-            Toast.makeText(context,"身份验证成功",Toast.LENGTH_SHORT).show();
+            //Toast.makeText(context,"身份验证成功",Toast.LENGTH_SHORT).show();
         }
     };
 

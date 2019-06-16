@@ -25,6 +25,7 @@ import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.utils.CommonDbHelper;
 import com.nasa.bt.utils.LocalDbUtils;
+import com.nasa.bt.utils.LocalSettingsUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -92,6 +93,11 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
     public boolean onQueryTextSubmit(String s) {
         if(TextUtils.isEmpty(s)){
             Toast.makeText(this,"不能为空",Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        if(s.equals(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME))){
+            Toast.makeText(this,"亲，请不要没事和自己对话",Toast.LENGTH_SHORT).show();
             return false;
         }
 
