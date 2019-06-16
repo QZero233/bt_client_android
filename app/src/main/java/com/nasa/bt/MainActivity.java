@@ -55,9 +55,11 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
 
-            sl_main.setRefreshing(false);
-            reloadUserInfo();
-            Toast.makeText(MainActivity.this,"刷新成功",Toast.LENGTH_SHORT).show();
+            if(sl_main.isRefreshing()){
+                sl_main.setRefreshing(false);
+                reloadUserInfo();
+                Toast.makeText(MainActivity.this,"刷新成功",Toast.LENGTH_SHORT).show();
+            }
         }
     };
 
@@ -89,7 +91,6 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             return;
         }
 
-        stopService(new Intent(this, MessageLoopService.class));
         startService(new Intent(this, MessageLoopService.class));
         LoopResource.cleanUnsent();
 
@@ -224,9 +225,9 @@ class MainUserAdapter extends BaseAdapter{
         TextView tv_msg=v.findViewById(R.id.tv_msg);
         TextView tv_time=v.findViewById(R.id.tv_time);
 
-        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' and status="+Msg.STATUS_UNREAD+" ORDER BY time DESC");
+        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' and status="+Msg.STATUS_UNREAD+" ORDER BY time");
         if(msgs==null || msgs.isEmpty()){
-            Msg msg= (Msg) msgHelper.querySingle("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' or dstUid='"+user.getId()+"' ORDER BY time");
+            Msg msg= (Msg) msgHelper.querySingle("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' or dstUid='"+user.getId()+"' ORDER BY time DESC");
             if(msg==null){
                 tv_msg.setText("无消息");
                 tv_time.setVisibility(View.GONE);

@@ -13,8 +13,6 @@ public class LoopResource {
     public static final String INBOX_IDENTIFIER_DISCONNECTED="DISC";
     public static final String INBOX_IDENTIFIER_RECONNECT="RECO";
 
-    public static LoginInfo loginInfo=null;
-
     public static List<Datagram> unsent=new ArrayList<>();
 
     public static void cleanUnsent(){

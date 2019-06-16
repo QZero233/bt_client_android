@@ -172,8 +172,6 @@ public class SocketIOHelper {
                 String identifier=new String(identifierBuf);
                 Datagram datagram=new Datagram(identifier,verCode,byteArrayToLong(timeBuf),params);
 
-                System.out.println("DEBUG::"+datagram);//FIXME REMOVE
-
                 return datagram;
             }catch (Exception e) {
                 e.printStackTrace();

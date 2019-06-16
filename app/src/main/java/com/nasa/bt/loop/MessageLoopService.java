@@ -1,7 +1,6 @@
 package com.nasa.bt.loop;
 
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
@@ -11,7 +10,6 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.LoginInfo;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.LocalSettingsUtils;
@@ -20,12 +18,11 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MessageLoopService extends Service implements Runnable {
+public class MessageLoopService extends Service {
 
     public static final String SERVER_IP_DEFAULT = "208.167.242.129";//208.167.242.129
-    private static final int SERVER_PORT = 8848;
-    private Socket socket;
-    private SocketIOHelper helper;
+    public static final int SERVER_PORT = 8848;
+
 
     public static MessageLoopService instance = null;
 
@@ -37,10 +34,11 @@ public class MessageLoopService extends Service implements Runnable {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-
             needReConnect = true;
         }
     };
+
+    public ClientThread connection;
 
     @Nullable
     @Override
@@ -55,7 +53,9 @@ public class MessageLoopService extends Service implements Runnable {
         handlers = new ProcessorHandlers(this);
         handlers.addDefaultIntents();
 
-        new Thread(this).start();
+        connection = new ClientThread(this);
+        connection.start();
+
         new Thread() {
             @Override
             public void run() {
@@ -83,13 +83,112 @@ public class MessageLoopService extends Service implements Runnable {
     }
 
     public synchronized void reConnect() {
+        //connection.reconnect();
+    }
+
+    public synchronized void onError() {
+        needReConnect = true;
+    }
+
+    public boolean sendDatagram(Datagram datagram){
+        return connection.sendDatagram(datagram);
+    }
+}
+
+
+class ClientThread extends Thread {
+
+    private MessageLoopService parent;
+    private Socket socket;
+    private SocketIOHelper helper;
+
+
+
+    public ClientThread(MessageLoopService parent) {
+        this.parent = parent;
+    }
+
+
+    @Override
+    public void run() {
+        super.run();
+
+        while(true){
+            doProcess();
+            Log.e("NASA", "正在尝试断线重连 ");
+            try {
+                Thread.sleep(5000);
+            }catch (Exception e){
+
+            }
+        }
+    }
+
+    private void doProcess(){
         try {
-            socket.close();
-        }catch (Exception e){
+            String ip = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_SERVER_IP);
+            if (TextUtils.isEmpty(ip))
+                ip = MessageLoopService.SERVER_IP_DEFAULT;
+
+            socket = new Socket(ip, MessageLoopService.SERVER_PORT);
+            helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
+
+            while (true) {
+                //接受对方传来的公钥
+                Datagram datagram = helper.readIs();
+                if (datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE)){
+                    Log.e("NASA", "公钥获取成功");
+                    break;
+                }
+
+            }
+
+            KeyUtils keyUtils = KeyUtils.getInstance();
+            helper.setPrivateKey(keyUtils.getPri());
+            while (!helper.sendPublicKey(keyUtils.getPub())) {
+                Log.e("NASA", "交换公钥失败，再次尝试");
+                Thread.sleep(1000);
+            }
+
+            Log.e("NASA", "连接完成，开始进行身份验证");
+            if (!doAuth()) {
+                Log.e("NASA", "身份验证失败，继续准备重连");
+                parent.onError();
+                return;
+            }
+
+            //处理未发出的数据包
+            LoopResource.sendUnsent();
+
+            while (true) {
+                //开始循环监听
+                Datagram datagram = helper.readIs();
+                if (datagram == null)
+                    break;
+
+                MessageLoop.processDatagram(datagram);
+            }
+
+        } catch (Exception e) {
 
         }
+    }
 
-        new Thread(this).start();
+    private boolean doAuth() {
+        String name = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_NAME);
+        String code = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_CODE_HASH);
+
+        if (TextUtils.isEmpty(name) && TextUtils.isEmpty(code)) {
+            return false;
+        }
+
+        Map<String, byte[]> loginParam = new HashMap<>();
+
+        loginParam.put("username", name.getBytes());
+        loginParam.put("code_hash", code.getBytes());
+
+        Datagram loginDatagram = new Datagram(Datagram.IDENTIFIER_SIGN_IN, loginParam);
+        return helper.writeOs(loginDatagram);
     }
 
     public boolean sendDatagram(Datagram datagram) {
@@ -103,92 +202,4 @@ public class MessageLoopService extends Service implements Runnable {
         }
     }
 
-    private boolean doAuth() {
-        LoginInfo info = LoopResource.loginInfo;
-        if (info == null) {
-            info = new LoginInfo();
-
-            String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
-            String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
-
-            if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(code)) {
-                info.name = name;
-                info.codeHash = code;
-            } else {
-                return false;
-            }
-
-        }
-
-        Map<String, byte[]> loginParam = new HashMap<>();
-
-        loginParam.put("username", info.name.getBytes());
-        loginParam.put("code_hash", info.codeHash.getBytes());
-
-        Datagram loginDatagram = new Datagram(Datagram.IDENTIFIER_SIGN_IN, loginParam);
-        return helper.writeOs(loginDatagram);
-    }
-
-    @Override
-    public void run() {
-        try {
-            String ip = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_SERVER_IP);
-            if (TextUtils.isEmpty(ip))
-                ip = SERVER_IP_DEFAULT;
-
-            socket = new Socket(ip, SERVER_PORT);
-            helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
-
-            while(true){
-                //接受对方传来的公钥
-                Datagram datagram=helper.readIs();
-                if(datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE))
-                    break;
-            }
-
-            KeyUtils keyUtils=KeyUtils.getInstance();
-            helper.setPrivateKey(keyUtils.getPri());
-            while(!helper.sendPublicKey(keyUtils.getPub())){
-                Log.e("NASA","交换公钥失败，再次尝试");
-                Thread.sleep(1000);
-            }
-
-            Log.e("NASA", "连接完成，开始进行身份验证");
-            if (!doAuth()) {
-                Log.e("NASA", "身份验证失败，继续准备重连");
-                needReConnect = true;
-                return;
-            }
-
-            //处理未发出的数据包
-            LoopResource.sendUnsent();
-
-            while (true) {
-                //开始循环监听
-                Datagram datagram = helper.readIs();
-                if (datagram == null)
-                    throw new Exception();
-
-                MessageLoop.processDatagram(datagram);
-            }
-
-        } catch (Exception e) {
-            Log.e("NASA", "正在尝试断线重连 " + e.getMessage());
-            needReConnect = true;
-        }
-
-    }
-}
-
-
-class ClientThread extends Thread{
-
-    private Context context;
-
-    @Override
-    public void run() {
-        super.run();
-
-
-    }
 }
