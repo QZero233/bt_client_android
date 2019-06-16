@@ -123,6 +123,12 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     }
 
     @Override
+    protected void onRestart() {
+        super.onRestart();
+        reloadUserInfo();
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return super.onCreateOptionsMenu(menu);
@@ -218,7 +224,7 @@ class MainUserAdapter extends BaseAdapter{
         TextView tv_msg=v.findViewById(R.id.tv_msg);
         TextView tv_time=v.findViewById(R.id.tv_time);
 
-        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' and status="+Msg.STATUS_UNREAD+" ORDER BY time");
+        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' and status="+Msg.STATUS_UNREAD+" ORDER BY time DESC");
         if(msgs==null || msgs.isEmpty()){
             Msg msg= (Msg) msgHelper.querySingle("SELECT * FROM msg WHERE srcUid='"+user.getId()+"' or dstUid='"+user.getId()+"' ORDER BY time");
             if(msg==null){

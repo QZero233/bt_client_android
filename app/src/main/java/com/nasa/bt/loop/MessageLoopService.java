@@ -1,6 +1,7 @@
 package com.nasa.bt.loop;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
@@ -21,7 +22,7 @@ import java.util.Map;
 
 public class MessageLoopService extends Service implements Runnable {
 
-    public static final String SERVER_IP_DEFAULT = "10.0.2.2";//208.167.242.129
+    public static final String SERVER_IP_DEFAULT = "208.167.242.129";//208.167.242.129
     private static final int SERVER_PORT = 8848;
     private Socket socket;
     private SocketIOHelper helper;
@@ -175,6 +176,19 @@ public class MessageLoopService extends Service implements Runnable {
             Log.e("NASA", "正在尝试断线重连 " + e.getMessage());
             needReConnect = true;
         }
+
+    }
+}
+
+
+class ClientThread extends Thread{
+
+    private Context context;
+
+    @Override
+    public void run() {
+        super.run();
+
 
     }
 }
