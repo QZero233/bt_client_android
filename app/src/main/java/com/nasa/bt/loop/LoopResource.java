@@ -3,7 +3,6 @@ package com.nasa.bt.loop;
 import android.util.Log;
 
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.LoginInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,12 +14,6 @@ public class LoopResource {
 
     public static List<Datagram> unsent=new ArrayList<>();
 
-    public static void cleanUnsent(){
-        synchronized (unsent){
-            unsent.clear();
-        }
-    }
-
     public static void sendDatagram(final Datagram datagram){
         new Thread(){
             @Override
@@ -29,7 +22,7 @@ public class LoopResource {
                 synchronized (unsent){
                     if(!MessageLoopService.instance.sendDatagram(datagram)){
                         unsent.add(datagram);
-                        Log.e("NASA","数据包发送失败 "+datagram);
+                        Log.e("nasa","数据包发送失败 "+datagram);
                         Datagram reconnect=new Datagram(INBOX_IDENTIFIER_RECONNECT,null);
                         MessageLoop.processDatagram(reconnect);
                     }

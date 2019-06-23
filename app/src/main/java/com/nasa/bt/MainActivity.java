@@ -19,11 +19,9 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.nasa.bt.cls.Contact;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
@@ -38,38 +36,35 @@ import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
 
-    private Handler msgHandler=new Handler(){
+
+    private Handler changeHandler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
+
             reloadUserInfo();
-        }
-    };
-
-    private Handler msgIndexHandler=new Handler(){
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
             if(sl_main.isRefreshing()){
                 sl_main.setRefreshing(false);
-                reloadUserInfo();
                 Toast.makeText(MainActivity.this,"刷新成功",Toast.LENGTH_SHORT).show();
             }
         }
     };
+
 
     private ListView lv_users;
     private SwipeRefreshLayout sl_main;
 
     private List<UserInfo> users;
 
-    MessageIntent intentMessage=new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,msgHandler,0,1);
-    MessageIntent intentMessageIndex=new MessageIntent("MAIN_MESSAGE_INDEX", Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,msgIndexHandler,0,1);
+    MessageIntent intentMessage=new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,changeHandler,0,1);
+    MessageIntent intentMessageIndex=new MessageIntent("MAIN_MESSAGE_INDEX", Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,changeHandler,0,1);
+    MessageIntent intentUserInfo=new MessageIntent("MAIN_USER_INFO", Datagram.IDENTIFIER_RETURN_USER_INFO,changeHandler,0,1);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
         MessageLoop.addIntent(intentMessage);
         MessageLoop.addIntent(intentMessageIndex);
+        MessageLoop.addIntent(intentUserInfo);
 
         KeyUtils.initContext(this);
 
@@ -91,9 +87,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             return;
         }
 
-        stopService(new Intent(this, MessageLoopService.class));
         startService(new Intent(this, MessageLoopService.class));
-        LoopResource.cleanUnsent();
 
         lv_users=findViewById(R.id.lv_users);
         sl_main=findViewById(R.id.sl_main);
@@ -112,15 +106,13 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     }
 
     private void reloadUserInfo(){
-        //users=userHelper.query("SELECT * FROM userinfo WHERE id!='"+LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID)+"'");
-        //TODO 目前的解决方案是Contact手动转UserInfo，以后再改
         users=new ArrayList<>();
-        List<Contact> contactList=LocalDbUtils.getContactHelper(this).query();
-        if(contactList!=null){
-            for(Contact contact:contactList){
-                if(contact.getName().equals(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME)))
+        List<UserInfo> userInfoList=LocalDbUtils.getUserInfoHelper(this).query();
+        if(userInfoList!=null){
+            for(UserInfo user:userInfoList){
+                if(user.getName().equals(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME)))
                     continue;
-                users.add(new UserInfo(contact.getName(),contact.getUid()));
+                users.add(new UserInfo(user.getName(),user.getId()));
             }
         }
         lv_users.setAdapter(new MainUserAdapter(users,this));
@@ -178,6 +170,14 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             }
         }else if(item.getItemId()==R.id.m_contact){
             startActivity(new Intent(this,ContactActivity.class));
+        }else if(item.getItemId()==R.id.m_quit){
+            LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_NAME,"");
+            LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,"");
+            LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_LAST,"");
+            Datagram datagramDisconnect=new Datagram(LoopResource.INBOX_IDENTIFIER_DISCONNECTED,null);
+            MessageLoop.processDatagram(datagramDisconnect);
+            Toast.makeText(this,"退出成功",Toast.LENGTH_SHORT).show();
+            finish();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -186,6 +186,16 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     public void onRefresh() {
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX,null);
         LoopResource.sendDatagram(datagram);
+
+        //刷新用户状态
+        if(users!=null){
+            for(UserInfo userInfo:users){
+                Map<String,String> params=new HashMap<>();
+                params.put("uid",userInfo.getId());
+                Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,params,"");
+                LoopResource.sendDatagram(datagramUser);
+            }
+        }
     }
 }
 
@@ -217,6 +227,7 @@ class MainUserAdapter extends BaseAdapter{
     public long getItemId(int i) {
         return 0;
     }
+
 
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {

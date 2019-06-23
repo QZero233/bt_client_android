@@ -22,9 +22,9 @@ public class RSATest {
 
         String clear=rsa.privateDecrypt(cipherText);
 
-        Log.d("NASA",cipherText);
+        Log.d("nasa",cipherText);
 
-        Log.d("NASA",clear);
+        Log.d("nasa",clear);
 
     }
 
@@ -38,9 +38,9 @@ public class RSATest {
 
         String clear=rsa.publicDecrypt(cipherText);
 
-        Log.d("NASA",cipherText);
+        Log.d("nasa",cipherText);
 
-        Log.d("NASA",clear);
+        Log.d("nasa",clear);
 
     }
 

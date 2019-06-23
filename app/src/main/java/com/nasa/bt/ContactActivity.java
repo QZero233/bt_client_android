@@ -18,8 +18,8 @@ import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.nasa.bt.cls.Contact;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.UserInfo;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
@@ -36,8 +36,8 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     private SearchView sv_name;
     private ListView lv_contact;
-    private CommonDbHelper contactHelper;
-    private List<Contact> contactList;
+    private CommonDbHelper userHelper;
+    private List<UserInfo> userInfoList;
     private ProgressBar pb;
 
     private Handler userInfoHandler=new Handler(){
@@ -55,11 +55,6 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
                 return;
             }
 
-            String uid=params.get("uid");
-            String name=params.get("name");
-            Contact contact=new Contact(uid,name);
-            contactHelper.execSql("DELETE FROM contact WHERE name='"+name+"'");
-            contactHelper.insert(contact);
             Toast.makeText(ContactActivity.this,"搜索添加成功",Toast.LENGTH_SHORT).show();
             reload();
         }
@@ -73,7 +68,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         sv_name=findViewById(R.id.sv_name);
         lv_contact=findViewById(R.id.lv_contact);
         pb=findViewById(R.id.pb);
-        contactHelper= LocalDbUtils.getContactHelper(this);
+        userHelper = LocalDbUtils.getUserInfoHelper(this);
 
         sv_name.setOnQueryTextListener(this);
         lv_contact.setOnItemClickListener(this);
@@ -110,10 +105,10 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
     }
 
     private void reload(){
-        contactList=contactHelper.query();
-        if(contactList==null)
-            contactList=new ArrayList<>();
-        lv_contact.setAdapter(new ShowContactAdapter(contactList,this));
+        userInfoList = userHelper.query();
+        if(userInfoList ==null)
+            userInfoList =new ArrayList<>();
+        lv_contact.setAdapter(new ShowContactAdapter(userInfoList,this));
     }
 
     @Override
@@ -123,14 +118,14 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-        final Contact contact=contactList.get(i);
+        final UserInfo userInfo= userInfoList.get(i);
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
-        builder.setMessage("是否删除联系人 "+contact.getName()+" （删除后会保留本地聊天记录）");
+        builder.setMessage("是否删除联系人 "+userInfo.getName()+" （删除后会保留本地聊天记录）");
         builder.setNegativeButton("取消",null);
         builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                contactHelper.execSql("DELETE FROM contact WHERE name='"+contact.getName()+"'");
+                userHelper.execSql("DELETE FROM userinfo WHERE name='"+userInfo.getName()+"'");
                 reload();
                 Toast.makeText(ContactActivity.this,"删除成功",Toast.LENGTH_SHORT).show();
             }
@@ -141,19 +136,19 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
 class ShowContactAdapter extends BaseAdapter{
 
-    private List<Contact> contactList;
+    private List<UserInfo> userList;
     private Context context;
 
-    public ShowContactAdapter(List<Contact> contactList, Context context) {
-        this.contactList = contactList;
+    public ShowContactAdapter(List<UserInfo> userList, Context context) {
+        this.userList = userList;
         this.context = context;
     }
 
     @Override
     public int getCount() {
-        if(contactList==null || contactList.isEmpty())
+        if(userList ==null || userList.isEmpty())
             return 0;
-        return contactList.size();
+        return userList.size();
     }
 
     @Override
@@ -169,7 +164,7 @@ class ShowContactAdapter extends BaseAdapter{
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
         TextView tv=new TextView(context);
-        tv.setText(contactList.get(i).getName());
+        tv.setText(userList.get(i).getName());
         tv.setTextSize(20);
 
         return tv;

@@ -7,13 +7,12 @@ import android.os.Message;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.alibaba.fastjson.JSON;
 import com.nasa.bt.AuthInfoActivity;
+import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
-import com.nasa.bt.crypt.CryptModule;
-import com.nasa.bt.crypt.CryptModuleFactory;
-import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.CommonDbHelper;
 import com.nasa.bt.utils.LocalDbUtils;
@@ -98,21 +97,26 @@ public class ProcessorHandlers {
             Datagram datagram= (Datagram) msg.obj;
 
             Map<String,String> params=datagram.getParamsAsString();
-            String msgId=params.get("msg_id");
-            String srcId=params.get("src_uid");
-            String msgContent=params.get("msg_content");
+            Msg msgGot= JSON.parseObject(params.get("msg"),Msg.class);
+            msgGot.setStatus(Msg.STATUS_UNREAD);
 
-            long time= SocketIOHelper.byteArrayToLong(datagram.getParams().get("time"));
-
-            Msg msgGot=new Msg(msgId,srcId,"",msgContent,time,Msg.STATUS_UNREAD);
-            if(srcId.equals("system")){
+            if(msgGot.getSrcUid().equals("system")){
                 msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE msgId='"+msgGot.getContent()+"'");
             }else{
                 msgHelper.insert(msgGot);
+
+                if(userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+msgGot.getSrcUid()+"'")==null){
+                    Log.e("NASA","未知用户 "+msgGot.getSrcUid());
+                    Map<String,String> paramsUser=new HashMap<>();
+                    paramsUser.put("uid",msgGot.getSrcUid());
+                    Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,paramsUser,"");
+                    LoopResource.sendDatagram(datagramUser);
+                }
+
             }
 
             Map<String,byte[]> deleteParams=new HashMap<>();
-            deleteParams.put("msg_id",msgId.getBytes());
+            deleteParams.put("msg_id",msgGot.getMsgId().getBytes());
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,deleteParams);
             LoopResource.sendDatagram(deleteDatagram);
         }
@@ -126,18 +130,20 @@ public class ProcessorHandlers {
 
             Datagram datagram= (Datagram) msg.obj;
             Map<String,String> params=datagram.getParamsAsString();
-            if(!params.get("action_identifier").equalsIgnoreCase(Datagram.IDENTIFIER_SEND_MESSAGE))
+            ActionReport actionReport=JSON.parseObject(params.get("action_report"),ActionReport.class);
+
+            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_SEND_MESSAGE))
                 return;
 
             int status;
-            if(params.get("action_status").equals("0"))
+            if(actionReport.getActionStatus().equals("0"))
                 status=Msg.STATUS_FAILED;
             else
                 status=Msg.STATUS_UNREAD;
 
-            String id=params.get("reply_id");
+            String id=actionReport.getReplyId();
             msgHelper.execSql("UPDATE msg SET status="+status+" WHERE msgId='"+id+"'");
-            Log.e("NASA","消息 "+id+" 状态反馈 "+status);
+            Log.e("nasa","消息 "+id+" 状态反馈 "+status);
         }
     };
 
@@ -148,10 +154,12 @@ public class ProcessorHandlers {
 
             Datagram datagram= (Datagram) msg.obj;
             Map<String,String> params=datagram.getParamsAsString();
-            if(!params.get("action_identifier").equalsIgnoreCase(Datagram.IDENTIFIER_SIGN_IN))
+            ActionReport actionReport=JSON.parseObject(params.get("action_report"),ActionReport.class);
+
+            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_SIGN_IN))
                 return;
 
-            if(params.get("action_status").equals("0")){
+            if(actionReport.getActionStatus().equals("0")){
                 //验证失败
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_NAME,"");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_CODE_HASH,"");
@@ -159,8 +167,6 @@ public class ProcessorHandlers {
                 context.startActivity(new Intent(context, AuthInfoActivity.class));
                 return;
             }
-
-            //Toast.makeText(context,"身份验证成功",Toast.LENGTH_SHORT).show();
         }
     };
 

@@ -2,7 +2,8 @@ package com.nasa.bt.crypt;
 
 import android.util.Base64;
 
-import javax.crypto.Cipher;
+import com.nasa.bt.cls.RSAKeySet;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyFactory;
@@ -14,103 +15,74 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 
+import javax.crypto.Cipher;
+
 public class RSAUtils {
-
-    //私钥
-    private String pri = null;
-    //公钥
-    private String pub = null;
-
-    //声明非对称加密算法
-    public static final String RSA = "RSA";
-    //密钥长度
-    public static final int KEY_SIZE = 2048;
-
-    public static final int CLEAR_MAX_SIZE = (KEY_SIZE/8)-11;
-    public static final int CIPHER_MAX_SIZE = 256;
 
     public static final String ECB_PKCS1_PADDING = "RSA/ECB/PKCS1Padding";
 
-    //密钥工厂对象
+    public static final String RSA = "RSA";
+    public static final int KEY_SIZE = 2048;
+    public static final int CLEAR_MAX_SIZE = (KEY_SIZE/8)-11;
+    public static final int CIPHER_MAX_SIZE = 256;
+
     private KeyFactory keyFactory;
-
-    // 公钥对象
     private RSAPublicKey publicKey = null;
-
-    // 声明私钥对象
     private RSAPrivateKey privateKey = null;
+    private RSAKeySet keySet;
 
-    RSAUtils(String pub, String pri) throws Exception {
-        this.pri = pri;
-        this.pub = pub;
+    public RSAUtils(){
+        try {
+            keyFactory = KeyFactory.getInstance(RSA);
+        }catch (Exception e){
+            //log.error("初始化RSAUtils对象时失败",e);
+        }
+    }
 
-        keyFactory = KeyFactory.getInstance(RSA);
+    public RSAUtils(RSAKeySet keySet){
+        this();
+        loadKeySet(keySet);
+    }
 
-        if(pub==null || pri==null)
+    public void loadKeySet(RSAKeySet keySet){
+        this.keySet=keySet;
+        if(keySet==null)
             return;
 
-        //加载公钥私钥
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pub,Base64.NO_WRAP));
-        publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
-
-        PKCS8EncodedKeySpec pKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(Base64.decode(pri,Base64.NO_WRAP));
-        privateKey = (RSAPrivateKey) keyFactory.generatePrivate(pKCS8EncodedKeySpec);
-    }
-
-    public void loadPublicKey(String pubKey) throws Exception{
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pubKey,Base64.NO_WRAP));
-        publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
-    }
-
-    public void loadPrivateKey(String priKey) throws Exception{
-        PKCS8EncodedKeySpec pKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(Base64.decode(priKey,Base64.NO_WRAP));
-        privateKey = (RSAPrivateKey) keyFactory.generatePrivate(pKCS8EncodedKeySpec);
-    }
-
-    RSAUtils() throws Exception {
-        keyFactory = KeyFactory.getInstance(RSA);
-        genRSAKeyPair();
-    }
-
-    RSAUtils(String pub) throws Exception{
-        keyFactory = KeyFactory.getInstance(RSA);
-        this.pub=pub;
-        //加载公钥
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(pub,Base64.NO_WRAP));
-        publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
-    }
-
-    public String getPri() {
-        return pri;
-    }
-
-    public String getPub() {
-        return pub;
-    }
-
-    private void genRSAKeyPair() throws Exception {
-
-        KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance(RSA);
-        // 初始化密钥对生成器，设置秘钥长度
-        keyPairGen.initialize(KEY_SIZE, new SecureRandom());
-
-        // 生成一个密钥对，保存在keyPair中
-        KeyPair keyPair = keyPairGen.generateKeyPair();
-
-        // 得到公钥
-        publicKey = (RSAPublicKey) keyPair.getPublic();
-
-        // 将公钥转换为 String 类型
-        pub = Base64.encodeToString(keyPair.getPublic().getEncoded(),Base64.NO_WRAP);
-
-        // 得到私钥
-        privateKey = (RSAPrivateKey) keyPair.getPrivate();
-
-        // 将私钥转换为 String 类型
-        pri = Base64.encodeToString(keyPair.getPrivate().getEncoded(),Base64.NO_WRAP);
+        try{
+            if(keySet.getPub()!=null && !keySet.getPub().equals("")){
+                X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(Base64.decode(keySet.getPub(),Base64.NO_WRAP));
+                publicKey = (RSAPublicKey) keyFactory.generatePublic(x509EncodedKeySpec);
+            }
+            if(keySet.getPri()!=null && !keySet.getPri().equals("")){
+                PKCS8EncodedKeySpec pKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(Base64.decode(keySet.getPri(),Base64.NO_WRAP));
+                privateKey = (RSAPrivateKey) keyFactory.generatePrivate(pKCS8EncodedKeySpec);
+            }
+        }catch (Exception e){
+           // log.error("装载密钥对时错误",e);
+        }
 
     }
 
+    public RSAKeySet getKeySet(){
+        return keySet;
+    }
+
+    public static RSAKeySet genRSAKeySet(){
+        try {
+            KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance(RSA);
+            keyPairGen.initialize(KEY_SIZE, new SecureRandom());
+            KeyPair keyPair = keyPairGen.generateKeyPair();
+
+            String pub = Base64.encodeToString(keyPair.getPublic().getEncoded(),Base64.NO_WRAP);
+            String pri = Base64.encodeToString(keyPair.getPrivate().getEncoded(),Base64.NO_WRAP);
+            return new RSAKeySet(pub,pri);
+        }catch (Exception e){
+            //log.error("生成RSA密钥对时失败",e);
+            return null;
+        }
+
+    }
     /**
      * 公钥加密过程, 明文长度小于 (公钥长度 / 8) - 11
      *

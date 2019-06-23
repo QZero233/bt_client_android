@@ -10,11 +10,13 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,13 +30,20 @@ public class MessageLoopService extends Service {
 
     public static MessageLoopService instance = null;
 
-    public boolean needReConnect = false;
-
     private Handler reconnectHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            needReConnect = true;
+            reConnect();
+        }
+    };
+
+    private Handler disconnectHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            disconnect();
         }
     };
 
@@ -53,37 +62,26 @@ public class MessageLoopService extends Service {
 
         rebind();
 
-        connection = new ClientThread(this);
-        connection.start();
-
-        new Thread() {
-            @Override
-            public void run() {
-                super.run();
-
-                while (true) {
-                    try {
-                        Thread.sleep(5000);
-                        if (needReConnect) {
-                            Log.e("NASA", "开始重连");
-                            reConnect();
-                            needReConnect = false;
-                        }
-                    } catch (Exception e) {
-
-                    }
-                }
-
-            }
-        }.start();
+        BugTelegramApplication application= (BugTelegramApplication) getApplication();
+        if(!application.threadRunning){
+            connection = new ClientThread(this);
+            connection.start();
+            application.threadRunning=false;
+        }
 
         MessageIntent reconnectIntent = new MessageIntent("SERVICE_RECONNECT", LoopResource.INBOX_IDENTIFIER_RECONNECT, reconnectHandler, 0, 0);
+        MessageIntent disconnectIntent=new MessageIntent("SERVICE_DISCONNECT",LoopResource.INBOX_IDENTIFIER_DISCONNECTED,disconnectHandler,0,0);
 
         MessageLoop.addIntent(reconnectIntent);
+        MessageLoop.addIntent(disconnectIntent);
     }
 
-    public synchronized void reConnect() {
+    private void reConnect() {
         connection.reconnect();
+    }
+
+    private void disconnect(){
+        connection.stopConnection();
     }
 
     public void rebind(){
@@ -115,6 +113,9 @@ class ClientThread extends Thread {
     }
 
     public void stopConnection(){
+        BugTelegramApplication application= (BugTelegramApplication) parent.getApplication();
+        application.threadRunning=false;
+
         running=false;
         try{
             socket.close();
@@ -127,8 +128,8 @@ class ClientThread extends Thread {
         try {
             socket.close();
         }catch (Exception e){
-
         }
+
         parent.rebind();
     }
 
@@ -140,7 +141,7 @@ class ClientThread extends Thread {
 
         while(running){
             doProcess();
-            Log.e("NASA", "正在尝试断线重连 ");
+            Log.e("nasa", "正在尝试断线重连");
             try {
                 Thread.sleep(5000);
             }catch (Exception e){
@@ -148,7 +149,7 @@ class ClientThread extends Thread {
             }
         }
 
-        Log.e("NASA","线程自然死亡......");
+        Log.e("nasa","线程自然死亡......");
     }
 
     private void doProcess(){
@@ -157,29 +158,31 @@ class ClientThread extends Thread {
             if (TextUtils.isEmpty(ip))
                 ip = MessageLoopService.SERVER_IP_DEFAULT;
 
-            socket = new Socket(ip, MessageLoopService.SERVER_PORT);
+            socket = new Socket();
+            socket.connect(new InetSocketAddress(ip,MessageLoopService.SERVER_PORT),5000);
             helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
 
             while (true) {
                 //接受对方传来的公钥
                 Datagram datagram = helper.readIs();
                 if (datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE)){
-                    Log.e("NASA", "公钥获取成功");
+                    Log.e("nasa", "公钥获取成功");
                     break;
                 }
 
             }
 
+            KeyUtils.initContext(parent);
             KeyUtils keyUtils = KeyUtils.getInstance();
             helper.setPrivateKey(keyUtils.getPri());
             while (!helper.sendPublicKey(keyUtils.getPub())) {
-                Log.e("NASA", "交换公钥失败，再次尝试");
+                Log.e("nasa", "交换公钥失败，再次尝试");
                 Thread.sleep(1000);
             }
 
-            Log.e("NASA", "连接完成，开始进行身份验证");
+            Log.e("nasa", "连接完成，开始进行身份验证");
             if (!doAuth()) {
-                Log.e("NASA", "身份验证失败，继续准备重连");
+                Log.e("nasa", "身份验证失败，继续准备重连");
                 return;
             }
 
@@ -196,7 +199,8 @@ class ClientThread extends Thread {
             }
 
         } catch (Exception e) {
-
+            e.printStackTrace();
+            Log.e("nasa",e.toString());
         }
     }
 

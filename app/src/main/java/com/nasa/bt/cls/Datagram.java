@@ -77,6 +77,24 @@ public class Datagram {
             this.params=new HashMap<>();
     }
 
+    public Datagram(String identifier, Map<String, String> params,String s) {
+        this.identifier = identifier;
+        this.verCode=CURRENT_VER_CODE;
+        this.time=System.currentTimeMillis();
+
+        if(params==null)
+            this.params=new HashMap<>();
+        else{
+            Map<String,byte[]> byteParam=new HashMap<>();
+            Set<String> keySet=params.keySet();
+            for(String key:keySet){
+                String value=params.get(key);
+                byteParam.put(key,value.getBytes());
+            }
+            this.params=byteParam;
+        }
+    }
+
     public String getIdentifier() {
         return identifier;
     }

@@ -17,10 +17,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
@@ -140,13 +143,11 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,System.currentTimeMillis(),Msg.STATUS_SENDING);
+        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,Msg.MSG_TYPE_NORMAL,System.currentTimeMillis(),Msg.STATUS_SENDING);
 
-        Map<String,byte[]> sendParam=new HashMap<>();
-        sendParam.put("msg_id", msg.getMsgId().getBytes());
-        sendParam.put("dst_uid",uidDst.getBytes());
-        sendParam.put("msg_content",content.getBytes());
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,sendParam);
+        Map<String,String> sendParam=new HashMap<>();
+        sendParam.put("msg", JSON.toJSONString(msg));
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,sendParam,"");
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
         msgHelper.insert(msg);
@@ -183,6 +184,26 @@ class ChatMsgAdapter extends BaseAdapter{
         return 0;
     }
 
+    private static int textToImage(String text) {
+        if (TextUtils.isEmpty(text))
+            return -1;
+        if (text.equals("手动滑稽"))
+            return R.mipmap.sdhj;
+        if (text.equals("党员滑稽"))
+            return R.mipmap.dyhj;
+        if (text.equals("党旗"))
+            return R.mipmap.cpc;
+        if (text.equals("国旗"))
+            return R.mipmap.prc;
+        if (text.equals("北社"))
+            return R.mipmap.nacp;
+        if (text.equals("问号滑稽"))
+            return R.mipmap.whhj;
+        if(text.equalsIgnoreCase("NASA"))
+            return R.mipmap.nasa;
+        return -1;
+    }
+
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
 
@@ -192,16 +213,26 @@ class ChatMsgAdapter extends BaseAdapter{
         TextView tv_msg=v.findViewById(R.id.tv_msg);
         TextView tv_time=v.findViewById(R.id.tv_time);
         TextView tv_status=v.findViewById(R.id.tv_status);
+        ImageView iv=v.findViewById(R.id.iv);
+        LinearLayout ll=v.findViewById(R.id.ll);
 
         if(!msg.getSrcUid().equals(dstUid)){
             //自己发的，东西往右边放
             tv_msg.setGravity(Gravity.RIGHT);
             tv_time.setGravity(Gravity.RIGHT);
             tv_status.setGravity(Gravity.RIGHT);
+            ll.setGravity(Gravity.RIGHT);
         }else
             tv_status.setVisibility(View.GONE);
 
-        tv_msg.setText(msg.getContent());
+        int image=textToImage(msg.getContent());
+        if(image==-1)
+            tv_msg.setText(msg.getContent());
+        else{
+            tv_msg.setVisibility(View.GONE);
+            iv.setVisibility(View.VISIBLE);
+            iv.setImageResource(image);
+        }
 
         switch (msg.getStatus()){
             case Msg.STATUS_READ:

@@ -17,7 +17,7 @@ public class KeyUtils {
 
     private RSAUtils rsaUtils;
 
-    private KeyUtils() throws Exception{
+    private KeyUtils() {
         File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
         byte[] keyBuf= FileIOUtils.readFile(keyFile);
         if(keyBuf==null){
@@ -25,40 +25,39 @@ public class KeyUtils {
             saveKeySet();
         }else{
             RSAKeySet keySet=JSON.parseObject(new String(keyBuf),RSAKeySet.class);
-            rsaUtils=new RSAUtils(keySet.getPub(),keySet.getPri());
+            rsaUtils=new RSAUtils(keySet);
         }
     }
 
-    public void genKeySet() throws Exception{
+    public void genKeySet(){
         rsaUtils=new RSAUtils();
     }
 
-    public RSAUtils getRsaUtils() {
-        return rsaUtils;
-    }
 
     public boolean saveKeySet(){
         if(rsaUtils==null)
             return false;
-        RSAKeySet keySet=new RSAKeySet(rsaUtils.getPub(),rsaUtils.getPri());
+
+        RSAKeySet keySet=rsaUtils.getKeySet();
+        rsaUtils.loadKeySet(keySet);
         String keyJSON= JSON.toJSONString(keySet);
         File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
         return FileIOUtils.writeFile(keyFile,keyJSON.getBytes());
     }
 
     public String getPub(){
-        return rsaUtils.getPub();
+        return rsaUtils.getKeySet().getPub();
     }
 
     public String getPri(){
-        return rsaUtils.getPri();
+        return rsaUtils.getKeySet().getPri();
     }
 
     public static void initContext(Context appContext){
         context=appContext;
     }
 
-    public static KeyUtils getInstance() throws Exception{
+    public static KeyUtils getInstance(){
         if(instance==null){
             instance=new KeyUtils();
         }

@@ -7,6 +7,10 @@
         android:title="重置RSA密钥对"
         app:showAsAction="never" />
     <item
+        android:id="@+id/m_quit"
+        android:title="退出登录"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/m_settings"
         android:icon="@android:drawable/ic_menu_manage"
         app:showAsAction="always" />

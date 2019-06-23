@@ -3,6 +3,7 @@ package com.nasa.bt.crypt;
 import android.util.Base64;
 
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.RSAKeySet;
 
 import java.io.ByteArrayInputStream;
 import java.util.Map;
@@ -28,8 +29,9 @@ public class CryptModuleRSA implements CryptModule {
 
             clearText= Base64.encode(clearText,Base64.NO_WRAP);
 
-            RSAUtils rsaUtils=new RSAUtils(null,null);
-            rsaUtils.loadPublicKey(clientPubKey);
+            RSAKeySet keySet=new RSAKeySet(clientPubKey,null);
+            RSAUtils rsaUtils=new RSAUtils(keySet);
+
             String result=rsaUtils.publicEncrypt(new String(clearText));
             return result.getBytes();
         } catch (Exception e) {
@@ -65,8 +67,9 @@ public class CryptModuleRSA implements CryptModule {
             if(myPrivateKey==null)
                 return null;
 
-            RSAUtils rsaUtils=new RSAUtils(null,null);
-            rsaUtils.loadPrivateKey(myPrivateKey);
+            RSAKeySet keySet=new RSAKeySet(null,myPrivateKey);
+            RSAUtils rsaUtils=new RSAUtils(keySet);
+
             String result=rsaUtils.privateDecrypt(new String(cipherText));
             return Base64.decode(result,Base64.NO_WRAP);
         } catch (Exception e) {
