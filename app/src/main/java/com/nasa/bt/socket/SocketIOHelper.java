@@ -4,6 +4,9 @@ import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.CryptModule;
 import com.nasa.bt.crypt.CryptModuleFactory;
 import com.nasa.bt.crypt.CryptModuleRSA;
+import com.nasa.bt.log.AppLogConfigurator;
+
+import org.apache.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -19,6 +22,8 @@ import java.util.Set;
  * @author QZero
  */
 public class SocketIOHelper {
+
+    private static final Logger log= AppLogConfigurator.getLogger();
 
     /**
      * 输入流
@@ -174,7 +179,7 @@ public class SocketIOHelper {
 
                 return datagram;
             }catch (Exception e) {
-                e.printStackTrace();
+                log.error("读取输入流错误",e);
                 throw new RuntimeException("读取输入流错误，断开连接");
                 //一旦发生读取错误就断开与客户端的连接
             }
@@ -228,7 +233,7 @@ public class SocketIOHelper {
 
                 return true;
             }catch (Exception e){
-                e.printStackTrace();
+                log.error("写输入流错误",e);
                 return false;
             }
         }
@@ -253,7 +258,7 @@ public class SocketIOHelper {
             os.write(outputStream.toByteArray());
             return true;
         }catch (Exception e){
-            e.printStackTrace();
+            log.error("发送公钥失败",e);
             return false;
         }
     }

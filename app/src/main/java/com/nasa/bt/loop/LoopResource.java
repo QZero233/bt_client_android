@@ -3,6 +3,9 @@ package com.nasa.bt.loop;
 import android.util.Log;
 
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.log.AppLogConfigurator;
+
+import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +14,8 @@ public class LoopResource {
 
     public static final String INBOX_IDENTIFIER_DISCONNECTED="DISC";
     public static final String INBOX_IDENTIFIER_RECONNECT="RECO";
+
+    private static final Logger log= AppLogConfigurator.getLogger();
 
     public static List<Datagram> unsent=new ArrayList<>();
 
@@ -22,7 +27,7 @@ public class LoopResource {
                 synchronized (unsent){
                     if(!MessageLoopService.instance.sendDatagram(datagram)){
                         unsent.add(datagram);
-                        Log.e("nasa","数据包发送失败 "+datagram);
+                        log.debug("数据包发送失败 具体内容"+datagram);
                         Datagram reconnect=new Datagram(INBOX_IDENTIFIER_RECONNECT,null);
                         MessageLoop.processDatagram(reconnect);
                     }

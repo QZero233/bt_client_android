@@ -13,8 +13,11 @@ import android.util.Log;
 import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.KeyUtils;
+import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.LocalSettingsUtils;
+
+import org.apache.log4j.Logger;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -108,6 +111,9 @@ class ClientThread extends Thread {
     private SocketIOHelper helper;
     private boolean running=true;
 
+    private static final Logger log= AppLogConfigurator.getLogger();
+
+
     public ClientThread(MessageLoopService parent) {
         this.parent = parent;
     }
@@ -141,7 +147,7 @@ class ClientThread extends Thread {
 
         while(running){
             doProcess();
-            Log.e("nasa", "正在尝试断线重连");
+            log.info("因未知原因断线，5秒后将尝试重连");
             try {
                 Thread.sleep(5000);
             }catch (Exception e){
@@ -149,7 +155,7 @@ class ClientThread extends Thread {
             }
         }
 
-        Log.e("nasa","线程自然死亡......");
+        log.info("监听线程结束（自然死亡）");
     }
 
     private void doProcess(){
@@ -166,7 +172,7 @@ class ClientThread extends Thread {
                 //接受对方传来的公钥
                 Datagram datagram = helper.readIs();
                 if (datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE)){
-                    Log.e("nasa", "公钥获取成功");
+                    log.info("已收到服务器公钥");
                     break;
                 }
 
@@ -176,18 +182,17 @@ class ClientThread extends Thread {
             KeyUtils keyUtils = KeyUtils.getInstance();
             helper.setPrivateKey(keyUtils.getPri());
             while (!helper.sendPublicKey(keyUtils.getPub())) {
-                Log.e("nasa", "交换公钥失败，再次尝试");
+                log.info("向服务器发送公钥失败，1秒后将再次尝试");
                 Thread.sleep(1000);
             }
 
-            Log.e("nasa", "连接完成，开始进行身份验证");
+            log.info("公钥交换完成，开始进行身份验证");
             if (!doAuth()) {
-                Log.e("nasa", "身份验证失败，继续准备重连");
+                log.info("身份验证失败（本地原因），准备重连");
                 return;
             }
 
-            //处理未发出的数据包
-            LoopResource.sendUnsent();
+            log.info("身份验证数据包已发送，开始循环监听");
 
             while (true) {
                 //开始循环监听
@@ -199,8 +204,7 @@ class ClientThread extends Thread {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
-            Log.e("nasa",e.toString());
+            log.error("处理数据包时错误",e);
         }
     }
 

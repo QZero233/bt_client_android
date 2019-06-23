@@ -13,15 +13,20 @@ import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
 import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.CommonDbHelper;
 import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
+import org.apache.log4j.Logger;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class ProcessorHandlers {
+
+    private static final Logger log= AppLogConfigurator.getLogger();
 
     private Context context;
 
@@ -106,7 +111,6 @@ public class ProcessorHandlers {
                 msgHelper.insert(msgGot);
 
                 if(userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+msgGot.getSrcUid()+"'")==null){
-                    Log.e("NASA","未知用户 "+msgGot.getSrcUid());
                     Map<String,String> paramsUser=new HashMap<>();
                     paramsUser.put("uid",msgGot.getSrcUid());
                     Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,paramsUser,"");
@@ -143,7 +147,8 @@ public class ProcessorHandlers {
 
             String id=actionReport.getReplyId();
             msgHelper.execSql("UPDATE msg SET status="+status+" WHERE msgId='"+id+"'");
-            Log.e("nasa","消息 "+id+" 状态反馈 "+status);
+
+            log.debug("消息 "+id+" 状态反馈 "+status);
         }
     };
 
@@ -161,11 +166,16 @@ public class ProcessorHandlers {
 
             if(actionReport.getActionStatus().equals("0")){
                 //验证失败
+                log.info("身份验证失败");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_NAME,"");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_CODE_HASH,"");
                 Toast.makeText(context,"身份验证失败，请重新输入信息",Toast.LENGTH_SHORT).show();
                 context.startActivity(new Intent(context, AuthInfoActivity.class));
                 return;
+            }else{
+                log.info("身份验证成功，开始发送未处理数据包");
+                //处理未发出的数据包
+                LoopResource.sendUnsent();
             }
         }
     };

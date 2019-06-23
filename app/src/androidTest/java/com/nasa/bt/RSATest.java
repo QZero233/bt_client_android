@@ -2,6 +2,7 @@ package com.nasa.bt;
 
 import android.util.Log;
 
+import com.nasa.bt.cls.RSAKeySet;
 import com.nasa.bt.crypt.RSAUtils;
 
 import org.junit.Test;
@@ -14,7 +15,7 @@ public class RSATest {
 
     @Test
     public void testRSAPubEn() throws Exception{
-        RSAUtils rsa=new RSAUtils(pub,pri);
+        RSAUtils rsa=new RSAUtils(new RSAKeySet(pub,pri));
 
         String clearText="今年下半年，中美合拍的西游记即将正式开机，我继续扮演美猴王孙悟空，我会用美猴王艺术形象努力创造一个正能量的形象，文体两开花，弘扬中华文化，希望大家能多多关注";
 
@@ -30,7 +31,7 @@ public class RSATest {
 
     @Test
     public void testRSAPriEn() throws Exception{
-        RSAUtils rsa=new RSAUtils(pub,pri);
+        RSAUtils rsa=new RSAUtils(new RSAKeySet(pub,pri));
 
         String clearText="今年下半年，中美合拍的西游记敢问路在何方即将正式开机，我继续扮演美猴王孙悟空，我会用美猴王艺术形象努力创造一个正能量的形象，文体两开花，弘扬中华文化，希望大家能多多关注";
 
