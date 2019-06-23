@@ -1,5 +1,7 @@
 package com.nasa.bt.crypt;
 
+import android.util.Base64;
+
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -26,7 +28,20 @@ public class SHA256Utils {
         return encodeStr;
     }
 
-
+    private static String getSHA256InBase64(String str){
+        MessageDigest messageDigest;
+        String encodeStr = "";
+        try {
+            messageDigest = MessageDigest.getInstance("SHA-256");
+            messageDigest.update(str.getBytes("UTF-8"));
+            encodeStr = Base64.encodeToString(messageDigest.digest(),Base64.DEFAULT);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return encodeStr;
+    }
 
     private static String byte2Hex(byte[] bytes) {
         StringBuffer stringBuffer = new StringBuffer();

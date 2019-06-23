@@ -45,7 +45,6 @@ public class MessageLoopService extends Service {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-
             disconnect();
         }
     };
@@ -63,8 +62,11 @@ public class MessageLoopService extends Service {
         super.onCreate();
         instance = this;
 
-        rebind();
+    }
 
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        rebind();
         BugTelegramApplication application= (BugTelegramApplication) getApplication();
         if(!application.threadRunning){
             connection = new ClientThread(this);
@@ -77,6 +79,8 @@ public class MessageLoopService extends Service {
 
         MessageLoop.addIntent(reconnectIntent);
         MessageLoop.addIntent(disconnectIntent);
+
+        return super.onStartCommand(intent, flags, startId);
     }
 
     private void reConnect() {

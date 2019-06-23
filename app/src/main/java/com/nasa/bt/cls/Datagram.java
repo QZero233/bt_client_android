@@ -21,11 +21,17 @@ public class Datagram {
     public static final String IDENTIFIER_UPDATE_USER_INFO="IFUP";
     public static final String IDENTIFIER_MARK_READ="MKRD";
 
+    public static final String IDENTIFIER_CREATE_SECRET_CHAT="CRSC";
+    public static final String IDENTIFIER_DELETE_SECRET_CHAT="DESC";
+    public static final String IDENTIFIER_GET_SECRET_CHAT="GTSC";
+    public static final String IDENTIFIER_GET_SECRET_CHAT_INDEX="GTSI";
 
     public static final String IDENTIFIER_RETURN_MESSAGE_INDEX="MERI";
     public static final String IDENTIFIER_RETURN_MESSAGE_DETAIL="MERD";
     public static final String IDENTIFIER_RETURN_USER_INFO="USRF";
     public static final String IDENTIFIER_RETURN_USERS_INDEX="USRI";
+    public static final String IDENTIFIER_RETURN_SECRET_CHAT="RESC";
+    public static final String IDENTIFIER_RETURN_SECRET_CHAT_INDEX="RESI";
 
     public static final String IDENTIFIER_NONE="NONE";
     public static final String IDENTIFIER_CHANGE_KEY="CHKY";

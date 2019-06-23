@@ -12,6 +12,7 @@ import com.nasa.bt.AuthInfoActivity;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
+import com.nasa.bt.cls.SecretChat;
 import com.nasa.bt.cls.UserInfo;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.socket.SocketIOHelper;
@@ -30,7 +31,7 @@ public class ProcessorHandlers {
 
     private Context context;
 
-    private CommonDbHelper msgHelper,userHelper;
+    private CommonDbHelper msgHelper,userHelper,secretChatHelper;
 
     private Handler defaultUserInfoProcessor=new Handler(){
         @Override
@@ -105,18 +106,37 @@ public class ProcessorHandlers {
             Msg msgGot= JSON.parseObject(params.get("msg"),Msg.class);
             msgGot.setStatus(Msg.STATUS_UNREAD);
 
+            log.debug("收到消息 "+msgGot);
+
             if(msgGot.getSrcUid().equals("system")){
                 msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE msgId='"+msgGot.getContent()+"'");
-            }else{
+            }else if(msgGot.getSrcUid().equals("secretChat")){
+                log.info("收到私密聊天创建 "+msgGot.getContent());
+                Map<String,String> getParam=new HashMap<>();
+                getParam.put("session_id",msgGot.getContent());
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SECRET_CHAT,getParam,null);
+                LoopResource.sendDatagram(datagramGet);
+            }else if(msgGot.getSrcUid().equals("secretChatDelete")){
+                secretChatHelper.execSql("UPDATE secretchat SET status="+SecretChat.STATUS_CLOSED+" WHERE sessionId='"+msgGot.getContent()+"'");
+            } else{
                 msgHelper.insert(msgGot);
 
-                if(userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+msgGot.getSrcUid()+"'")==null){
-                    Map<String,String> paramsUser=new HashMap<>();
-                    paramsUser.put("uid",msgGot.getSrcUid());
-                    Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,paramsUser,"");
-                    LoopResource.sendDatagram(datagramUser);
+                if(msgGot.getMsgType().equals(Msg.MSG_TYPE_NORMAL)){
+                    if(userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+msgGot.getSrcUid()+"'")==null){
+                        Map<String,String> paramsUser=new HashMap<>();
+                        paramsUser.put("uid",msgGot.getSrcUid());
+                        Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,paramsUser,"");
+                        LoopResource.sendDatagram(datagramUser);
+                    }
+                }else if(msgGot.getMsgType().equals(Msg.MSG_TYPE_SECRET_1)){
+                    if(secretChatHelper.querySingle("SELECT * FROM secretchat WHERE sessionId='"+msgGot.getSrcUid()+"'")==null){
+                        log.debug("收到未知私密聊天，请求服务器......"+msgGot.getSrcUid());
+                        Map<String,String> paramsUser=new HashMap<>();
+                        paramsUser.put("session_id",msgGot.getSrcUid());
+                        Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_SECRET_CHAT,paramsUser,"");
+                        LoopResource.sendDatagram(datagramUser);
+                    }
                 }
-
             }
 
             Map<String,byte[]> deleteParams=new HashMap<>();
@@ -174,13 +194,45 @@ public class ProcessorHandlers {
                 return;
             }else{
                 log.info("身份验证成功，开始发送未处理数据包");
+                log.info("获得的uid "+actionReport.getMore());
+                LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,actionReport.getMore());
                 //处理未发出的数据包
                 LoopResource.sendUnsent();
             }
         }
     };
 
+    private Handler defaultSecretChatIndexHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
 
+            Datagram datagram= (Datagram) msg.obj;
+            Map<String,String> params=datagram.getParamsAsString();
+
+            String indexes=params.get("session_index");
+            for(int i=0;i<indexes.length()/36;i++){
+                String index=indexes.substring(i*36,(i+1)*36);
+
+                Map<String,String> getParam=new HashMap<>();
+                getParam.put("session_id",index);
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SECRET_CHAT,getParam,null);
+                LoopResource.sendDatagram(datagramGet);
+            }
+        }
+    };
+
+    private Handler defaultSecretChatHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            Datagram datagram= (Datagram) msg.obj;
+            Map<String,String> params=datagram.getParamsAsString();
+            SecretChat secretChat=JSON.parseObject(params.get("secret_chat"),SecretChat.class);
+            secretChatHelper.insert(secretChat);
+        }
+    };
 
     private MessageIntent userInfoIntent=new MessageIntent("DEFAULT_USER_INFO",Datagram.IDENTIFIER_RETURN_USER_INFO,defaultUserInfoProcessor,0,0);
     private MessageIntent userIndexIntent=new MessageIntent("DEFAULT_USER_INDEX",Datagram.IDENTIFIER_RETURN_USERS_INDEX,defaultUserIndexProcessor,0,0);
@@ -188,12 +240,15 @@ public class ProcessorHandlers {
     private MessageIntent messageIndexIntent=new MessageIntent("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
     private MessageIntent messageStatusIntent=new MessageIntent("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_REPORT, defaultSendMessageReportHandler,0,0);
     private MessageIntent authReport=new MessageIntent("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_REPORT, defaultAuthReportHandler,0,0);
+    private MessageIntent secretChatIndex=new MessageIntent("DEFAULT_SECRET_CHAT_INDEX",Datagram.IDENTIFIER_RETURN_SECRET_CHAT_INDEX, defaultSecretChatIndexHandler,0,0);
+    private MessageIntent secretChat=new MessageIntent("DEFAULT_SECRET_CHAT",Datagram.IDENTIFIER_RETURN_SECRET_CHAT, defaultSecretChatHandler,0,0);
 
     public ProcessorHandlers(Context context) {
         this.context = context;
 
         msgHelper= LocalDbUtils.getMsgHelper(context);
         userHelper=LocalDbUtils.getUserInfoHelper(context);
+        secretChatHelper=LocalDbUtils.getSecretChatHelper(context);
     }
 
     public void addDefaultIntents(){
@@ -203,5 +258,7 @@ public class ProcessorHandlers {
         MessageLoop.addIntent(messageIndexIntent);
         MessageLoop.addIntent(messageStatusIntent);
         MessageLoop.addIntent(authReport);
+        MessageLoop.addIntent(secretChatIndex);
+        MessageLoop.addIntent(secretChat);
     }
 }

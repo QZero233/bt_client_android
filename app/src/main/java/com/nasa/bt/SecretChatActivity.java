@@ -1,17 +1,13 @@
 package com.nasa.bt;
 
 import android.content.Context;
-import android.content.DialogInterface;
 import android.graphics.Color;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -25,6 +21,7 @@ import android.widget.Toast;
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
+import com.nasa.bt.cls.SecretChat;
 import com.nasa.bt.cls.UserInfo;
 import com.nasa.bt.crypt.AESUtils;
 import com.nasa.bt.loop.LoopResource;
@@ -32,6 +29,7 @@ import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.utils.CommonDbHelper;
 import com.nasa.bt.utils.LocalDbUtils;
+import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
 
@@ -39,19 +37,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ChatActivity extends AppCompatActivity {
+public class SecretChatActivity extends AppCompatActivity {
 
-    private EditText et_msg;
     private ListView lv_msg;
-    private CommonDbHelper msgHelper;
-    private String uidDst;
-    private UserInfo userDst;
+    private EditText et_msg;
+    private SecretChat secretChat;
+
+    private String key;
+    private String dstUid;
+
+    private CommonDbHelper userInfoHelper,msgHelper;
 
     private Handler changedHandler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            reload();
+            refresh();
             markRead();
         }
     };
@@ -64,73 +65,40 @@ public class ChatActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
+        et_msg=findViewById(R.id.et_msg);
 
-        userDst= (UserInfo) getIntent().getSerializableExtra("userDst");
-        if(userDst==null){
+        userInfoHelper= LocalDbUtils.getUserInfoHelper(this);
+        msgHelper=LocalDbUtils.getMsgHelper(this);
+
+        secretChat= (SecretChat) getIntent().getSerializableExtra("secret_chat");
+        key=getIntent().getStringExtra("key");
+        if(secretChat==null){
             finish();
             return;
         }
-        uidDst=userDst.getId();
-        msgHelper= LocalDbUtils.getMsgHelper(this);
-        reload();
+
+        String uid= LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID);
+        dstUid=(uid.equals(secretChat.getSrcUid()))?secretChat.getDstUid():secretChat.getSrcUid();
+        UserInfo dstUser= (UserInfo) userInfoHelper.querySingle("SELECT * FROM userinfo WHERE id='"+dstUid+"'");
+        setTitle("与 "+dstUser.getName()+" 的绝对安全聊天");
 
         MessageLoop.addIntent(intentReport);
         MessageLoop.addIntent(intentMessage);
         markRead();
-
-        setTitle("与 "+userDst.getName()+" 的加密通信");
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_chat, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if(item.getItemId()==R.id.m_clean){
-            AlertDialog.Builder builder=new AlertDialog.Builder(this);
-            builder.setMessage("确认删除，操作不可逆？");
-            builder.setNegativeButton("取消",null);
-            builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    msgHelper.execSql("DELETE FROM msg WHERE dstUid='"+uidDst+"' OR srcUid='"+uidDst+"'");
-                    reload();
-                    Toast.makeText(ChatActivity.this,"操作成功",Toast.LENGTH_SHORT).show();
-                }
-            });
-            builder.show();
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intentReport.getId(),1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,intentMessage.getId(),1);
+        refresh();
     }
 
     private void markRead(){
-        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+uidDst+"' AND status="+Msg.STATUS_UNREAD);
+        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+secretChat.getSessionId()+"' AND status="+Msg.STATUS_UNREAD);
         for(Msg msg:unread){
             Map<String,byte[]> param=new HashMap<>();
             param.put("msg_id",msg.getMsgId().getBytes());
-            param.put("src_uid",uidDst.getBytes());
+            param.put("src_uid",dstUid.getBytes());
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_MARK_READ,param);
             LoopResource.sendDatagram(datagram);
         }
-        msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE srcUid='"+uidDst+"' AND status="+Msg.STATUS_UNREAD);
-    }
-
-    private void reload(){
-        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+uidDst+"' or dstUid='"+uidDst+"' ORDER BY time");
-        lv_msg.setAdapter(new ChatMsgAdapter(msgs,this,uidDst));
-        lv_msg.setSelection(lv_msg.getCount() - 1);
+        msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE srcUid='"+secretChat.getSessionId()+"' AND status="+Msg.STATUS_UNREAD);
     }
 
     public void send(View v){
@@ -140,7 +108,8 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,Msg.MSG_TYPE_NORMAL,System.currentTimeMillis(),Msg.STATUS_SENDING);
+        Msg msg=new Msg(UUIDUtils.getRandomUUID(),LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID),secretChat.getSessionId(),content,Msg.MSG_TYPE_SECRET_1,System.currentTimeMillis(),Msg.STATUS_SENDING);
+        msg.setContent(AESUtils.aesEncrypt(content,key));
 
         Map<String,String> sendParam=new HashMap<>();
         sendParam.put("msg", JSON.toJSONString(msg));
@@ -148,27 +117,35 @@ public class ChatActivity extends AppCompatActivity {
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
         msgHelper.insert(msg);
-        reload();
+        refresh();
+    }
+
+    private void refresh(){
+        List<Msg> msgList=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+secretChat.getSessionId()+"' or dstUid='"+secretChat.getSessionId()+"'");
+        lv_msg.setAdapter(new SecretChatAdapter(msgList,this,key));
+        lv_msg.setSelection(lv_msg.getCount() - 1);
     }
 }
 
-class ChatMsgAdapter extends BaseAdapter{
+class SecretChatAdapter extends BaseAdapter{
 
-    private List<Msg> msgs;
+    private List<Msg> msgList;
     private Context context;
-    private String dstUid;
+    private String uid;
+    private String key;
 
-    public ChatMsgAdapter(List<Msg> msgs, Context context,String dstUid) {
-        this.msgs = msgs;
+    public SecretChatAdapter(List<Msg> msgList, Context context,String key) {
+        this.msgList = msgList;
         this.context = context;
-        this.dstUid=dstUid;
+        uid=LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_UID);
+        this.key=key;
     }
 
     @Override
     public int getCount() {
-        if(msgs==null || msgs.isEmpty())
+        if(msgList==null)
             return 0;
-        return msgs.size();
+        return msgList.size();
     }
 
     @Override
@@ -205,7 +182,16 @@ class ChatMsgAdapter extends BaseAdapter{
     public View getView(int i, View view, ViewGroup viewGroup) {
 
         View v=View.inflate(context,R.layout.view_show_msg,null);
-        Msg msg=msgs.get(i);
+        Msg msg=msgList.get(i);
+
+        try{
+            String decrypted=AESUtils.aesDecrypt(msg.getContent(),key);
+            msg.setContent(decrypted);
+        }catch (Exception e){
+
+        }
+
+        //
 
         TextView tv_msg=v.findViewById(R.id.tv_msg);
         TextView tv_time=v.findViewById(R.id.tv_time);
@@ -213,7 +199,7 @@ class ChatMsgAdapter extends BaseAdapter{
         ImageView iv=v.findViewById(R.id.iv);
         LinearLayout ll=v.findViewById(R.id.ll);
 
-        if(!msg.getSrcUid().equals(dstUid)){
+        if(msg.getSrcUid().equals(uid)){
             //自己发的，东西往右边放
             tv_msg.setGravity(Gravity.RIGHT);
             tv_time.setGravity(Gravity.RIGHT);
@@ -251,7 +237,6 @@ class ChatMsgAdapter extends BaseAdapter{
         }
 
         tv_time.setText(TimeUtils.toStandardTime(msg.getTime()));
-
 
         return v;
     }

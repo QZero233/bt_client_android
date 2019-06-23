@@ -3,8 +3,11 @@ package com.nasa.bt;
 import android.util.Log;
 
 import com.nasa.bt.cls.RSAKeySet;
+import com.nasa.bt.crypt.AESUtils;
 import com.nasa.bt.crypt.RSAUtils;
+import com.nasa.bt.log.AppLogConfigurator;
 
+import org.apache.log4j.Logger;
 import org.junit.Test;
 
 public class RSATest {
@@ -43,6 +46,14 @@ public class RSATest {
 
         Log.d("nasa",clear);
 
+    }
+
+    @Test
+    public void testAES(){
+        String cipher= AESUtils.aesEncrypt("233","key");
+        String clear=AESUtils.aesDecrypt(cipher,"key");
+
+        Log.e("NASA",cipher+"\n"+clear);
     }
 
 }
