@@ -119,6 +119,7 @@ public class ProcessorHandlers {
             }else if(msgGot.getSrcUid().equals("secretChatDelete")){
                 secretChatHelper.execSql("UPDATE secretchat SET status="+SecretChat.STATUS_CLOSED+" WHERE sessionId='"+msgGot.getContent()+"'");
             } else{
+                msgHelper.execSql("DELETE FROM msg WHERE msgId='"+msgGot.getMsgId()+"'");
                 msgHelper.insert(msgGot);
 
                 if(msgGot.getMsgType().equals(Msg.MSG_TYPE_NORMAL)){

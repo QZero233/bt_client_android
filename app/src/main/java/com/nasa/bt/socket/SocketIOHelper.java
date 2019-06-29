@@ -12,7 +12,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -39,16 +41,6 @@ public class SocketIOHelper {
      * 当前使用的加密模块
      */
     private CryptModule cryptModule;
-
-    /**
-     * 加密用的密钥
-     */
-    private static final String KEY_ENCRYPT="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl25SnsKTpQxsJCWpS9eKO2aAlgcfUXc3YK3S5QHNwptxM5GUvYilUjrLvcoaaQsfoxuc5JeBhAKAkRhtAsIis6/4sSsLJuOKMCE8wotkkgF6QJRW8SUnYS/MdFfgdPg11Hc+wZnUSycv4GBfykuW89tKxFK8xYKhLSaJHWPAJbGEvtR0G2ixOGrfSKFNIX8tytCfIzTO31ZCfdMyMp5dnbEwbLC/SRqCdJ4T2stVRjJ/C545NHdKsmAhvuMEffrk6vJRbpqqw65QTK6pHxwcM9YPPqmQ9lBUzI6d6aNxBqiUcTiRwIqltStooDI6VTZx6zUQ66Dhdl0O+l2R2hf/lQIDAQAB";
-
-    /**
-     * 解密用的密钥
-     */
-    private static final String KEY_DECRYPT="1234567890123456";
 
     /**
      * 初始化helper类
@@ -105,6 +97,28 @@ public class SocketIOHelper {
     }
 
     /**
+     * 在输入流中读取指定长度的数据包
+     * @param is 输入流
+     * @param length 长度
+     * @return 数据包
+     * @throws Exception 读取时的异常
+     */
+    private byte[] readBufFromIs(InputStream is,int length) throws Exception{
+        ByteArrayOutputStream outputStream=new ByteArrayOutputStream(length);
+        byte[] buf=new byte[length];
+        int len;
+        while(true){
+            len=is.read(buf,0,length);
+            length-=len;
+            outputStream.write(buf,0,len);
+            if(length==0)
+                break;
+        }
+
+        return outputStream.toByteArray();
+    }
+
+    /**
      * 从输入流中读取数据并转为数据包对象
      * @return 读取到的数据
      * @throws RuntimeException 当读取输入流错误时，抛出异常
@@ -113,27 +127,23 @@ public class SocketIOHelper {
         synchronized (is){
             try {
 
-                byte[] intTmpBuf=new byte[4];
                 //数据包总长度
-                is.read(intTmpBuf);
+                byte[] intTmpBuf=readBufFromIs(is,4);
                 int dataLength=byteArrayToInt(intTmpBuf);
 
                 if(dataLength<=0)
                     return null;
 
                 //明文信息总长度
-                is.read(intTmpBuf);
+                intTmpBuf=readBufFromIs(is,4);;
                 int contentLength=byteArrayToInt(intTmpBuf);
 
-                ByteArrayOutputStream tmpBuf=new ByteArrayOutputStream(dataLength);
-                byte[] buf=new byte[dataLength];
-                while (tmpBuf.size()<dataLength){
-                    int len=is.read(buf);
-                    tmpBuf.write(buf,0,len);
-                }
+                log.debug("读取到明文信息总长度 "+ contentLength +" byte="+ Arrays.toString(intTmpBuf)+" 密文总长度 "+dataLength);
+
+                byte[] buf=readBufFromIs(is,dataLength);
 
                 //全部内容读取完成，开始解密数据包
-                byte[] decrypted=cryptModule.doDecrypt(tmpBuf.toByteArray(),null,null);
+                byte[] decrypted=cryptModule.doDecrypt(buf,null,null);
                 //解密失败返回空数据包
                 if(decrypted==null){
                     return new Datagram(Datagram.IDENTIFIER_NONE,null);

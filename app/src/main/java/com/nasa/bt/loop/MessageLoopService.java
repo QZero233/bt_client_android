@@ -62,8 +62,6 @@ public class MessageLoopService extends Service {
         super.onCreate();
         instance = this;
 
-
-
     }
 
     @Override
@@ -174,7 +172,7 @@ class ClientThread extends Thread {
                 ip = MessageLoopService.SERVER_IP_DEFAULT;
 
             socket = new Socket();
-            socket.connect(new InetSocketAddress(ip,MessageLoopService.SERVER_PORT),5000);
+            socket.connect(new InetSocketAddress(ip,MessageLoopService.SERVER_PORT),10000);
             helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
 
             while (true) {

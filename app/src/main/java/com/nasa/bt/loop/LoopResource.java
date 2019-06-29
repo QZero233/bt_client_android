@@ -44,10 +44,15 @@ public class LoopResource {
             public void run() {
                 super.run();
                 synchronized (unsent){
-                    for(Datagram datagram:unsent){
-                        if(MessageLoopService.instance.sendDatagram(datagram))
-                            unsent.remove(datagram);
+
+                    if(unsent==null || unsent.isEmpty())
+                        return;
+
+                    for(int i=0;i<unsent.size();i++){
+                        if(MessageLoopService.instance.sendDatagram(unsent.get(i)))
+                            unsent.remove(i);
                     }
+
                 }
             }
         }.start();
