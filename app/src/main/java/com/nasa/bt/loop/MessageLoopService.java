@@ -62,16 +62,19 @@ public class MessageLoopService extends Service {
         super.onCreate();
         instance = this;
 
+
+
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         rebind();
+
         BugTelegramApplication application= (BugTelegramApplication) getApplication();
-        if(!application.threadRunning){
+        if(!application.getThreadStatus()){
             connection = new ClientThread(this);
             connection.start();
-            application.threadRunning=false;
+            application.setThreadStatus(true);
         }
 
         MessageIntent reconnectIntent = new MessageIntent("SERVICE_RECONNECT", LoopResource.INBOX_IDENTIFIER_RECONNECT, reconnectHandler, 0, 0);
@@ -122,9 +125,10 @@ class ClientThread extends Thread {
         this.parent = parent;
     }
 
-    public void stopConnection(){
+    public synchronized void stopConnection(){
+        log.debug("收到断线通知，开始手动断线");
         BugTelegramApplication application= (BugTelegramApplication) parent.getApplication();
-        application.threadRunning=false;
+        application.setThreadStatus(false);
 
         running=false;
         try{
@@ -134,7 +138,8 @@ class ClientThread extends Thread {
         }
     }
 
-    public void reconnect(){
+    public synchronized void reconnect(){
+        log.debug("收到手动重连通知，开始手动重连");
         try {
             socket.close();
         }catch (Exception e){
@@ -236,6 +241,7 @@ class ClientThread extends Thread {
         try {
             return helper.writeOs(datagram);
         } catch (Exception e) {
+            log.debug("发送数据包错误",e);
             return false;
         }
     }

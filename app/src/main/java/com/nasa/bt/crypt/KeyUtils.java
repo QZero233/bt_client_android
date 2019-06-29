@@ -20,7 +20,7 @@ public class KeyUtils {
     private KeyUtils() {
         File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
         byte[] keyBuf= FileIOUtils.readFile(keyFile);
-        if(keyBuf==null){
+        if(keyBuf==null || JSON.parseObject(new String(keyBuf),RSAKeySet.class)==null){
             genKeySet();
             saveKeySet();
         }else{
@@ -30,7 +30,7 @@ public class KeyUtils {
     }
 
     public void genKeySet(){
-        rsaUtils=new RSAUtils();
+        rsaUtils=new RSAUtils(RSAUtils.genRSAKeySet());
     }
 
 

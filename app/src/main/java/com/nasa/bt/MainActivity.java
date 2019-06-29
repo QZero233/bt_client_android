@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             }
         });
         reloadUserInfo();
-        setTitle("BugTelegram NASA内测版");
+        setTitle("BT NASA内测版 当前"+LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME));
     }
 
     private void reloadUserInfo(){
