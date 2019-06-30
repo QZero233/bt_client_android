@@ -1,6 +1,5 @@
 package com.nasa.bt.cls;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -18,24 +17,23 @@ public class Datagram {
     public static final String IDENTIFIER_GET_MESSAGE_DETAIL="MEGD";
     public static final String IDENTIFIER_DELETE_MESSAGE="MEDE";
     public static final String IDENTIFIER_GET_USER_INFO="USIF";
-    public static final String IDENTIFIER_GET_USERS_INDEX="USID";
-    public static final String IDENTIFIER_UPDATE_USER_INFO="IFUP";
-    public static final String IDENTIFIER_MARK_READ="MKRD";
 
-    public static final String IDENTIFIER_CREATE_SECRET_CHAT="CRSC";
-    public static final String IDENTIFIER_DELETE_SECRET_CHAT="DESC";
-    public static final String IDENTIFIER_GET_SECRET_CHAT="GTSC";
-    public static final String IDENTIFIER_GET_SECRET_CHAT_INDEX="GTSI";
+    public static final String IDENTIFIER_MARK_READ="MKRD";
 
     public static final String IDENTIFIER_RETURN_MESSAGE_INDEX="MERI";
     public static final String IDENTIFIER_RETURN_MESSAGE_DETAIL="MERD";
     public static final String IDENTIFIER_RETURN_USER_INFO="USRF";
-    public static final String IDENTIFIER_RETURN_USERS_INDEX="USRI";
-    public static final String IDENTIFIER_RETURN_SECRET_CHAT="RESC";
-    public static final String IDENTIFIER_RETURN_SECRET_CHAT_INDEX="RESI";
 
     public static final String IDENTIFIER_NONE="NONE";
     public static final String IDENTIFIER_CHANGE_KEY="CHKY";
+
+    public static final String IDENTIFIER_CREATE_SESSION="CRSS";
+    public static final String IDENTIFIER_GET_SESSIONS_INDEX="GISS";
+    public static final String IDENTIFIER_GET_SESSION_DETAIL="GDSS";
+    public static final String IDENTIFIER_DELETE_SESSION="DESS";
+
+    public static final String IDENTIFIER_RETURN_SESSIONS_INDEX="RISS";
+    public static final String IDENTIFIER_RETURN_SESSION_DETAIL="RDSS";
 
 
     /**

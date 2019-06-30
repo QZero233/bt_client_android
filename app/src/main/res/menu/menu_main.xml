@@ -18,8 +18,4 @@
         android:id="@+id/m_contact"
         android:icon="@mipmap/contact"
         app:showAsAction="always" />
-    <item
-        android:id="@+id/m_secret_chat"
-        android:icon="@android:drawable/ic_lock_lock"
-        app:showAsAction="always" />
 </menu>

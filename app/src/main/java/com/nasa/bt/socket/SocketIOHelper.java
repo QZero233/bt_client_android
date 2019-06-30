@@ -138,8 +138,6 @@ public class SocketIOHelper {
                 intTmpBuf=readBufFromIs(is,4);;
                 int contentLength=byteArrayToInt(intTmpBuf);
 
-                log.debug("读取到明文信息总长度 "+ contentLength +" byte="+ Arrays.toString(intTmpBuf)+" 密文总长度 "+dataLength);
-
                 byte[] buf=readBufFromIs(is,dataLength);
 
                 //全部内容读取完成，开始解密数据包
@@ -186,6 +184,8 @@ public class SocketIOHelper {
                 //读取完成，开始封装
                 String identifier=new String(identifierBuf);
                 Datagram datagram=new Datagram(identifier,verCode,byteArrayToLong(timeBuf),params);
+
+                log.debug("收到数据包 "+datagram);
 
                 return datagram;
             }catch (Exception e) {

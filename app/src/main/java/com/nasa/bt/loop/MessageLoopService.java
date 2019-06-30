@@ -8,7 +8,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.Datagram;

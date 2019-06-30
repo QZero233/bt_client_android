@@ -2,6 +2,7 @@ package com.nasa.bt;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -25,6 +26,7 @@ import android.widget.Toast;
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.Msg;
+import com.nasa.bt.cls.Session;
 import com.nasa.bt.cls.UserInfo;
 import com.nasa.bt.crypt.AESUtils;
 import com.nasa.bt.loop.LoopResource;
@@ -32,6 +34,7 @@ import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.utils.CommonDbHelper;
 import com.nasa.bt.utils.LocalDbUtils;
+import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
 
@@ -43,9 +46,10 @@ public class ChatActivity extends AppCompatActivity {
 
     private EditText et_msg;
     private ListView lv_msg;
-    private CommonDbHelper msgHelper;
-    private String uidDst;
-    private UserInfo userDst;
+    private CommonDbHelper msgHelper,userHelper;
+
+    private Session session;
+    private String dstUid;
 
     private Handler changedHandler=new Handler(){
         @Override
@@ -67,12 +71,16 @@ public class ChatActivity extends AppCompatActivity {
         et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
 
-        userDst= (UserInfo) getIntent().getSerializableExtra("userDst");
-        if(userDst==null){
+        session= (Session) getIntent().getSerializableExtra("session");
+        dstUid=session.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
+
+        userHelper=LocalDbUtils.getUserInfoHelper(this);
+        UserInfo dstUser= (UserInfo) userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+dstUid+"'");
+        if(dstUser==null){
             finish();
             return;
         }
-        uidDst=userDst.getId();
+
         msgHelper= LocalDbUtils.getMsgHelper(this);
         reload();
 
@@ -80,7 +88,7 @@ public class ChatActivity extends AppCompatActivity {
         MessageLoop.addIntent(intentMessage);
         markRead();
 
-        setTitle("与 "+userDst.getName()+" 的加密通信");
+        setTitle("与 "+dstUser.getName()+" 的加密通信");
     }
 
     @Override
@@ -98,7 +106,7 @@ public class ChatActivity extends AppCompatActivity {
             builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    msgHelper.execSql("DELETE FROM msg WHERE dstUid='"+uidDst+"' OR srcUid='"+uidDst+"'");
+                    msgHelper.execSql("DELETE FROM msg WHERE dstUid='"+dstUid+"' OR srcUid='"+dstUid+"'");
                     reload();
                     Toast.makeText(ChatActivity.this,"操作成功",Toast.LENGTH_SHORT).show();
                 }
@@ -116,20 +124,20 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void markRead(){
-        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+uidDst+"' AND status="+Msg.STATUS_UNREAD);
+        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+dstUid+"' AND status="+Msg.STATUS_UNREAD);
         for(Msg msg:unread){
             Map<String,byte[]> param=new HashMap<>();
             param.put("msg_id",msg.getMsgId().getBytes());
-            param.put("src_uid",uidDst.getBytes());
+            param.put("src_uid",dstUid.getBytes());
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_MARK_READ,param);
             LoopResource.sendDatagram(datagram);
         }
-        msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE srcUid='"+uidDst+"' AND status="+Msg.STATUS_UNREAD);
+        msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE srcUid='"+dstUid+"' AND status="+Msg.STATUS_UNREAD);
     }
 
     private void reload(){
-        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+uidDst+"' or dstUid='"+uidDst+"' ORDER BY time");
-        lv_msg.setAdapter(new ChatMsgAdapter(msgs,this,uidDst));
+        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+dstUid+"' or dstUid='"+dstUid+"' ORDER BY time");
+        lv_msg.setAdapter(new ChatMsgAdapter(msgs,this,dstUid,getIntent(),session.getSessionType()));
         lv_msg.setSelection(lv_msg.getCount() - 1);
     }
 
@@ -140,7 +148,12 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",uidDst,content,Msg.MSG_TYPE_NORMAL,System.currentTimeMillis(),Msg.STATUS_SENDING);
+        if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
+            String key=getIntent().getStringExtra("key");
+            content=AESUtils.aesEncrypt(content,key);
+        }
+
+        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",dstUid,session.getSessionId(),content,System.currentTimeMillis(),Msg.STATUS_SENDING);
 
         Map<String,String> sendParam=new HashMap<>();
         sendParam.put("msg", JSON.toJSONString(msg));
@@ -157,11 +170,15 @@ class ChatMsgAdapter extends BaseAdapter{
     private List<Msg> msgs;
     private Context context;
     private String dstUid;
+    private Intent intent;
+    private int sessionType;
 
-    public ChatMsgAdapter(List<Msg> msgs, Context context,String dstUid) {
+    public ChatMsgAdapter(List<Msg> msgs, Context context,String dstUid,Intent intent,int sessionType) {
         this.msgs = msgs;
         this.context = context;
         this.dstUid=dstUid;
+        this.intent=intent;
+        this.sessionType=sessionType;
     }
 
     @Override
@@ -206,6 +223,11 @@ class ChatMsgAdapter extends BaseAdapter{
 
         View v=View.inflate(context,R.layout.view_show_msg,null);
         Msg msg=msgs.get(i);
+
+        if(sessionType==Session.TYPE_SECRET_CHAT){
+            String key=intent.getStringExtra("key");
+            msg.setContent(AESUtils.aesDecrypt(msg.getContent(),key));
+        }
 
         TextView tv_msg=v.findViewById(R.id.tv_msg);
         TextView tv_time=v.findViewById(R.id.tv_time);
