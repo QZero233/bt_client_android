@@ -28,7 +28,20 @@ public class SHA256Utils {
         return encodeStr;
     }
 
-    private static String getSHA256InBase64(String str){
+    public static byte[] getSHA256InByteArray(byte[] msg){
+        MessageDigest messageDigest;
+        byte[] result=null;
+        try {
+            messageDigest = MessageDigest.getInstance("SHA-256");
+            messageDigest.update(msg);
+            result=messageDigest.digest();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public static String getSHA256InBase64(String str){
         MessageDigest messageDigest;
         String encodeStr = "";
         try {

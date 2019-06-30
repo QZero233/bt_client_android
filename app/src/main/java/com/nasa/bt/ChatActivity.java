@@ -46,7 +46,7 @@ public class ChatActivity extends AppCompatActivity {
 
     private EditText et_msg;
     private ListView lv_msg;
-    private CommonDbHelper msgHelper,userHelper;
+    private CommonDbHelper msgHelper,userHelper,sessionHelper;
 
     private Session session;
     private String dstUid;
@@ -75,6 +75,7 @@ public class ChatActivity extends AppCompatActivity {
         dstUid=session.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
 
         userHelper=LocalDbUtils.getUserInfoHelper(this);
+        sessionHelper=LocalDbUtils.getSessionHelper(this);
         UserInfo dstUser= (UserInfo) userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+dstUid+"'");
         if(dstUser==null){
             finish();
@@ -88,7 +89,9 @@ public class ChatActivity extends AppCompatActivity {
         MessageLoop.addIntent(intentMessage);
         markRead();
 
-        setTitle("与 "+dstUser.getName()+" 的加密通信");
+        setTitle("与 "+dstUser.getName()+" 的安全通信");
+        if(session.getSessionType()==Session.TYPE_SECRET_CHAT)
+            setTitle("与 "+dstUser.getName()+" 的绝对安全通信");
     }
 
     @Override
@@ -124,7 +127,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void markRead(){
-        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+dstUid+"' AND status="+Msg.STATUS_UNREAD);
+        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+dstUid+"' AND sessionId='"+session.getSessionId()+"'  AND status="+Msg.STATUS_UNREAD);
         for(Msg msg:unread){
             Map<String,byte[]> param=new HashMap<>();
             param.put("msg_id",msg.getMsgId().getBytes());
@@ -132,11 +135,10 @@ public class ChatActivity extends AppCompatActivity {
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_MARK_READ,param);
             LoopResource.sendDatagram(datagram);
         }
-        msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE srcUid='"+dstUid+"' AND status="+Msg.STATUS_UNREAD);
     }
 
     private void reload(){
-        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+dstUid+"' or dstUid='"+dstUid+"' ORDER BY time");
+        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE sessionId='"+session.getSessionId()+"' ORDER BY time");
         lv_msg.setAdapter(new ChatMsgAdapter(msgs,this,dstUid,getIntent(),session.getSessionType()));
         lv_msg.setSelection(lv_msg.getCount() - 1);
     }
@@ -161,7 +163,15 @@ public class ChatActivity extends AppCompatActivity {
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
         msgHelper.insert(msg);
+        updateSessionInfo(msg);
         reload();
+    }
+
+    private void updateSessionInfo(Msg msg){
+        if(session.getSessionType()==Session.TYPE_SECRET_CHAT)
+            msg.setContent("加密信息，需密码解密查看");
+
+        sessionHelper.execSql("UPDATE session SET lastMessage='"+msg.getContent()+"',lastTime="+msg.getTime()+" WHERE sessionId='"+session.getSessionId()+"'");
     }
 }
 
@@ -223,11 +233,17 @@ class ChatMsgAdapter extends BaseAdapter{
 
         View v=View.inflate(context,R.layout.view_show_msg,null);
         Msg msg=msgs.get(i);
+        String content=msg.getContent();
 
-        if(sessionType==Session.TYPE_SECRET_CHAT){
-            String key=intent.getStringExtra("key");
-            msg.setContent(AESUtils.aesDecrypt(msg.getContent(),key));
+        try {
+            if(sessionType==Session.TYPE_SECRET_CHAT){
+                String key=intent.getStringExtra("key");
+                content=AESUtils.aesDecrypt(msg.getContent(),key);
+            }
+        }catch (Exception e){
+
         }
+
 
         TextView tv_msg=v.findViewById(R.id.tv_msg);
         TextView tv_time=v.findViewById(R.id.tv_time);
@@ -244,9 +260,9 @@ class ChatMsgAdapter extends BaseAdapter{
         }else
             tv_status.setVisibility(View.GONE);
 
-        int image=textToImage(msg.getContent());
+        int image=textToImage(content);
         if(image==-1)
-            tv_msg.setText(msg.getContent());
+            tv_msg.setText(content);
         else{
             tv_msg.setVisibility(View.GONE);
             iv.setVisibility(View.VISIBLE);

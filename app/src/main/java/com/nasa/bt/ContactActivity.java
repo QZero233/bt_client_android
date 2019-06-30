@@ -2,6 +2,7 @@ package com.nasa.bt;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AlertDialog;
@@ -32,7 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ContactActivity extends AppCompatActivity implements SearchView.OnQueryTextListener, AdapterView.OnItemClickListener {
+public class ContactActivity extends AppCompatActivity implements SearchView.OnQueryTextListener, AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
 
     private SearchView sv_name;
     private ListView lv_contact;
@@ -72,6 +73,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
         sv_name.setOnQueryTextListener(this);
         lv_contact.setOnItemClickListener(this);
+        lv_contact.setOnItemLongClickListener(this);
         reload();
 
         MessageIntent intent=new MessageIntent("CONTACT_USER_INFO",Datagram.IDENTIFIER_RETURN_USER_INFO,userInfoHandler,0,1);
@@ -118,6 +120,14 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+        UserInfo user=userInfoList.get(i);
+        Intent intent=new Intent(this,UserDetailActivity.class);
+        intent.putExtra("user",user);
+        startActivity(intent);
+    }
+
+    @Override
+    public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
         final UserInfo userInfo= userInfoList.get(i);
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
         builder.setMessage("是否删除联系人 "+userInfo.getName()+" （删除后会保留本地聊天记录）");
@@ -131,6 +141,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
             }
         });
         builder.show();
+        return true;
     }
 }
 

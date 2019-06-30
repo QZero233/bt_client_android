@@ -101,6 +101,8 @@ public class ProcessorHandlers {
                 msgHelper.execSql("DELETE FROM msg WHERE msgId='"+msgGot.getMsgId()+"'");
                 msgHelper.insert(msgGot);
 
+                sessionHelper.execSql("UPDATE session SET lastMessage='"+msgGot.getContent()+"',lastTime="+msgGot.getTime()+" WHERE sessionId='"+msgGot.getSessionId()+"'");
+
                 if(sessionHelper.querySingle("SELECT * FROM session WHERE sessionId='"+msgGot.getSessionId()+"'")==null){
                     Map<String,String> paramsUser=new HashMap<>();
                     paramsUser.put("session_id",msgGot.getSessionId());

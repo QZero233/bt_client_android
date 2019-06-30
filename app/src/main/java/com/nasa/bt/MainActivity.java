@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
     private void refresh() {
         sessions = sessionHelper.query();
+        lv_sessions.setAdapter(new MainUserAdapter(sessions,this));
     }
 
     private void startChat(final int index) {
@@ -218,7 +219,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         Datagram datagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
         LoopResource.sendDatagram(datagram);
 
-        //TODO 刷新用户状态
+        //datagram.setIdentifier(Datagram.IDENTIFIER_GET_SESSIONS_INDEX);
+        //LoopResource.sendDatagram(datagram);
     }
 }
 
@@ -265,7 +267,7 @@ class MainUserAdapter extends BaseAdapter {
 
         String dstUid = session.getIdOfOther(LocalSettingsUtils.read(context, LocalSettingsUtils.FIELD_UID));
 
-        List<Msg> msgs = msgHelper.query("SELECT * FROM msg WHERE srcUid='" + dstUid + "' and status=" + Msg.STATUS_UNREAD + " ORDER BY time");
+        List<Msg> msgs = msgHelper.query("SELECT * FROM msg WHERE srcUid='" + dstUid + "' and sessionId='"+session.getSessionId()+"' and status=" + Msg.STATUS_UNREAD + " ORDER BY time");
         if (msgs == null || msgs.isEmpty()) {
             if (TextUtils.isEmpty(session.getLastMessage())) {
                 tv_msg.setText("无消息");
@@ -274,6 +276,9 @@ class MainUserAdapter extends BaseAdapter {
                 tv_msg.setText(session.getLastMessage());
                 tv_time.setText(TimeUtils.toStandardTime(session.getLastTime()));
             }
+
+            if(session.getSessionType()==Session.TYPE_SECRET_CHAT)
+                tv_msg.setText("加密信息，需密码解密查看");
         } else {
             tv_msg.setText("有 " + msgs.size() + " 条未读消息");
             tv_msg.setTextColor(Color.RED);
@@ -287,6 +292,10 @@ class MainUserAdapter extends BaseAdapter {
             tv_name.setText("未知用户");
         }
 
+        if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
+            tv_name.setText(tv_name.getText()+"(加密聊天)");
+            tv_name.setTextColor(Color.RED);
+        }
 
         return v;
     }
