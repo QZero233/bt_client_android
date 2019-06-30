@@ -107,7 +107,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     }
 
     private void refresh() {
-        sessions = sessionHelper.query();
+        sessions = sessionHelper.queryOrder("lastTime DESC");
         lv_sessions.setAdapter(new MainUserAdapter(sessions,this));
     }
 

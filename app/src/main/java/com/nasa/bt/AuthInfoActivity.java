@@ -1,10 +1,15 @@
 package com.nasa.bt;
 
+import android.content.DialogInterface;
 import android.support.design.widget.TextInputEditText;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.nasa.bt.cls.Datagram;
@@ -56,6 +61,45 @@ public class AuthInfoActivity extends AppCompatActivity {
         MessageLoop.processDatagram(datagramReconnect);
 
         finish();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_auth, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.m_settings) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+            final EditText et_ip = new EditText(this);
+            String ip = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_SERVER_IP);
+            if (TextUtils.isEmpty(ip))
+                ip = MessageLoopService.SERVER_IP_DEFAULT;
+            et_ip.setText(ip);
+
+            builder.setView(et_ip);
+            builder.setMessage("请输入服务器IP");
+            builder.setNegativeButton("取消", null);
+            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    String newIp = et_ip.getText().toString();
+                    LocalSettingsUtils.save(AuthInfoActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
+                    Toast.makeText(AuthInfoActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
+
+                    Datagram datagram = new Datagram(LoopResource.INBOX_IDENTIFIER_RECONNECT, null);
+                    MessageLoop.processDatagram(datagram);
+
+                    finish();
+                }
+            });
+            builder.show();
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
 }

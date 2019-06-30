@@ -17,6 +17,7 @@ import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.utils.CommonDbHelper;
 import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
+import com.nasa.bt.utils.NotificationUtils;
 
 import org.apache.log4j.Logger;
 
@@ -115,6 +116,7 @@ public class ProcessorHandlers {
             deleteParams.put("msg_id",msgGot.getMsgId().getBytes());
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,deleteParams);
             LoopResource.sendDatagram(deleteDatagram);
+           // NotificationUtils.sendNotification(context);
         }
     };
 
