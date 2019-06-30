@@ -6,8 +6,8 @@ android {
         applicationId "com.nasa.bt"
         minSdkVersion 19
         targetSdkVersion 28
-        versionCode 4
-        versionName "4.0gamma-fixed"
+        versionCode 5
+        versionName "4.0epsilon"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
