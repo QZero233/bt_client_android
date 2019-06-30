@@ -42,6 +42,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 心中有党，成绩理想
+ */
 public class MainActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
 
 
@@ -67,6 +70,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
     MessageIntent intentMessage = new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL, changeHandler, 0, 1);
     MessageIntent intentMessageIndex = new MessageIntent("MAIN_MESSAGE_INDEX", Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX, changeHandler, 0, 1);
+    MessageIntent intentSessionIndex = new MessageIntent("MAIN_SESSION_INDEX", Datagram.IDENTIFIER_RETURN_SESSIONS_INDEX, changeHandler, 0, 1);
+    MessageIntent intentUserInfo = new MessageIntent("MAIN_USER_INFO", Datagram.IDENTIFIER_RETURN_USER_INFO, changeHandler, 0, 1);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +80,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
         MessageLoop.addIntent(intentMessage);
         MessageLoop.addIntent(intentMessageIndex);
+        MessageLoop.addIntent(intentSessionIndex);
+        MessageLoop.addIntent(intentUserInfo);
 
         KeyUtils.initContext(this);
 
@@ -219,8 +226,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         Datagram datagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
         LoopResource.sendDatagram(datagram);
 
-        //datagram.setIdentifier(Datagram.IDENTIFIER_GET_SESSIONS_INDEX);
-        //LoopResource.sendDatagram(datagram);
+        Datagram datagram2=new Datagram(Datagram.IDENTIFIER_GET_SESSIONS_INDEX, null);
+        LoopResource.sendDatagram(datagram2);
     }
 }
 

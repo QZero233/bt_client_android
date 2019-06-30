@@ -71,6 +71,7 @@ public class ChatActivity extends AppCompatActivity {
         et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
 
+
         session= (Session) getIntent().getSerializableExtra("session");
         dstUid=session.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
 
@@ -124,6 +125,21 @@ public class ChatActivity extends AppCompatActivity {
         super.onDestroy();
         MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intentReport.getId(),1);
         MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,intentMessage.getId(),1);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intentReport.getId(),1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,intentMessage.getId(),1);
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        MessageLoop.addIntent(intentReport);
+        MessageLoop.addIntent(intentMessage);
+        markRead();
     }
 
     private void markRead(){

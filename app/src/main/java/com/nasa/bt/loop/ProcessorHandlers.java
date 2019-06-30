@@ -195,8 +195,8 @@ public class ProcessorHandlers {
             if(!session.checkInSession(myUid))
                 return;
 
-            sessionHelper.execSql("DELETE FROM session WHERE sessionId='"+session.getSessionId()+"'");
-            sessionHelper.insert(session);
+            //sessionHelper.execSql("DELETE FROM session WHERE sessionId='"+session.getSessionId()+"'");
+            sessionHelper.update(session,session);
 
             String dstUid=session.getIdOfOther(myUid);
             if(userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+dstUid+"'")==null){
