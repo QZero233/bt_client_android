@@ -47,4 +47,38 @@ public class AESUtils {
         }
     }
 
+    public static byte[] aesEncrypt(byte[] clear,byte[] pwd){
+        try{
+            SecretKeySpec key = new SecretKeySpec(pwd, "AES/CBC/PKCS5PADDING");
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            byte[] result=cipher.doFinal(clear);
+            return result;
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static byte[] aesDecrypt(byte[] encrypted,byte[] pwd){
+        try{
+            SecretKeySpec key = new SecretKeySpec(pwd, "AES/CBC/PKCS5PADDING");
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.DECRYPT_MODE, key);
+
+            byte[] result=cipher.doFinal(encrypted);
+            return result;
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static String aesEncrypt(String clear,byte[] pwd){
+        return Base64.encodeToString(aesEncrypt(clear.getBytes(),pwd),Base64.DEFAULT);
+    }
+    public static String aesDecrypt(String encrypted,byte[] pwd){
+        return new String(aesDecrypt(Base64.decode(encrypted,Base64.DEFAULT),pwd));
+    }
+
 }

@@ -26,6 +26,10 @@ public class LoopResource {
             public void run() {
                 super.run();
                 synchronized (unsent){
+                    if(MessageLoopService.instance==null){
+                        unsent.add(datagram);
+                        return;
+                    }
                     if(!MessageLoopService.instance.sendDatagram(datagram)){
                         unsent.add(datagram);
                         log.debug("数据包发送失败 具体内容"+datagram);

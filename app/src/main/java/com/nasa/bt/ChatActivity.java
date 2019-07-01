@@ -51,6 +51,8 @@ public class ChatActivity extends AppCompatActivity {
     private Session session;
     private String dstUid;
 
+    private byte[] aesKey=null;
+
     private Handler changedHandler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
@@ -91,8 +93,11 @@ public class ChatActivity extends AppCompatActivity {
         markRead();
 
         setTitle("与 "+dstUser.getName()+" 的安全通信");
-        if(session.getSessionType()==Session.TYPE_SECRET_CHAT)
+        if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
             setTitle("与 "+dstUser.getName()+" 的绝对安全通信");
+            aesKey=AESUtils.getAESKey(getIntent().getStringExtra("key"));
+        }
+
     }
 
     @Override
@@ -167,8 +172,7 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
-            String key=getIntent().getStringExtra("key");
-            content=AESUtils.aesEncrypt(content,key);
+            content=AESUtils.aesEncrypt(content,aesKey);
         }
 
         Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",dstUid,session.getSessionId(),content,System.currentTimeMillis(),Msg.STATUS_SENDING);
@@ -198,6 +202,8 @@ class ChatMsgAdapter extends BaseAdapter{
     private String dstUid;
     private Intent intent;
     private int sessionType;
+
+    private byte[] aesKey=null;
 
     public ChatMsgAdapter(List<Msg> msgs, Context context,String dstUid,Intent intent,int sessionType) {
         this.msgs = msgs;
@@ -253,8 +259,9 @@ class ChatMsgAdapter extends BaseAdapter{
 
         try {
             if(sessionType==Session.TYPE_SECRET_CHAT){
-                String key=intent.getStringExtra("key");
-                content=AESUtils.aesDecrypt(msg.getContent(),key);
+                if(aesKey==null)
+                    aesKey=AESUtils.getAESKey(intent.getStringExtra("key"));
+                content=AESUtils.aesDecrypt(msg.getContent(),aesKey);
             }
         }catch (Exception e){
 
