@@ -1,49 +1,56 @@
-package com.nasa.bt.cls;
+package com.nasa.bt.data.entity;
 
 import com.alibaba.fastjson.JSON;
-import com.nasa.bt.annotations.ClassVerCode;
-import com.nasa.bt.annotations.MainKey;
+import com.j256.ormlite.field.DatabaseField;
+import com.j256.ormlite.table.DatabaseTable;
+
 
 import java.io.Serializable;
 import java.util.Map;
 
-@ClassVerCode(1)
-public class Session implements Serializable {
+@DatabaseTable(tableName = "session")
+public class SessionEntity implements Serializable {
 
     public static final int TYPE_NORMAL=0;
     public static final int TYPE_SECRET_CHAT=1;
 
-    @MainKey(true)
+    @DatabaseField(id = true)
     private String sessionId;
+    @DatabaseField
     private int sessionType;
 
-    private String uidSrc;
-    private String uidDst;
+    @DatabaseField
+    private String srcUid;
+    @DatabaseField
+    private String dstUid;
 
+    @DatabaseField
     private String params;
 
+    @DatabaseField
     private long lastTime;
+    @DatabaseField
     private String lastMessage;
 
 
-    public Session() {
+    public SessionEntity() {
     }
 
-    public Session(String sessionId, int sessionType, String uidSrc, String uidDst, Map<String,String> params, long lastTime, String lastMessage) {
+    public SessionEntity(String sessionId, int sessionType, String uidSrc, String uidDst, Map<String,String> params, long lastTime, String lastMessage) {
         this.sessionId = sessionId;
         this.sessionType = sessionType;
-        this.uidSrc = uidSrc;
-        this.uidDst = uidDst;
+        this.srcUid = uidSrc;
+        this.dstUid = uidDst;
         this.params = JSON.toJSONString(params);
         this.lastTime = lastTime;
         this.lastMessage = lastMessage;
     }
 
-    public Session(String sessionId, int sessionType, String uidSrc, String uidDst, String params, long lastTime, String lastMessage) {
+    public SessionEntity(String sessionId, int sessionType, String uidSrc, String uidDst, String params, long lastTime, String lastMessage) {
         this.sessionId = sessionId;
         this.sessionType = sessionType;
-        this.uidSrc = uidSrc;
-        this.uidDst = uidDst;
+        this.srcUid = uidSrc;
+        this.dstUid = uidDst;
         this.params = params;
         this.lastTime = lastTime;
         this.lastMessage = lastMessage;
@@ -97,48 +104,48 @@ public class Session implements Serializable {
         this.params=JSON.toJSONString(params);
     }
 
-    public String getUidSrc() {
-        return uidSrc;
+    public String getSrcUid() {
+        return srcUid;
     }
 
-    public void setUidSrc(String uidSrc) {
-        this.uidSrc = uidSrc;
+    public void setSrcUid(String uidSrc) {
+        this.srcUid = uidSrc;
     }
 
-    public String getUidDst() {
-        return uidDst;
+    public String getDstUid() {
+        return dstUid;
     }
 
-    public void setUidDst(String uidDst) {
-        this.uidDst = uidDst;
+    public void setDstUid(String uidDst) {
+        this.dstUid = uidDst;
     }
 
     public String getIdOfOther(String uid){
         if(uid==null)
             return null;
-        if(uid.equals(uidSrc))
-            return uidDst;
-        return uidSrc;
+        if(uid.equals(srcUid))
+            return dstUid;
+        return srcUid;
     }
 
     public boolean checkInSession(String uid){
         if(uid==null)
             return false;
-        if(!uid.equals(uidSrc) && !uid.equals(uidDst))
+        if(!uid.equals(srcUid) && !uid.equals(dstUid))
             return false;
         return true;
     }
 
     @Override
     public String toString() {
-        return "Session{" +
+        return "SessionEntity{" +
                 "sessionId='" + sessionId + '\'' +
                 ", sessionType=" + sessionType +
                 ", lastTime=" + lastTime +
                 ", lastMessage='" + lastMessage + '\'' +
                 ", params='" + params + '\'' +
-                ", uidSrc='" + uidSrc + '\'' +
-                ", uidDst='" + uidDst + '\'' +
+                ", uidSrc='" + srcUid + '\'' +
+                ", uidDst='" + dstUid + '\'' +
                 '}';
     }
 }

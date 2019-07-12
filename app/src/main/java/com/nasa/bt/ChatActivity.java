@@ -25,15 +25,16 @@ import android.widget.Toast;
 
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.Msg;
-import com.nasa.bt.cls.Session;
-import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.data.dao.MessageDao;
+import com.nasa.bt.data.dao.SessionDao;
+import com.nasa.bt.data.dao.UserInfoDao;
+import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.MessageEntity;
+import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.AESUtils;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
-import com.nasa.bt.utils.CommonDbHelper;
-import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
@@ -46,9 +47,12 @@ public class ChatActivity extends AppCompatActivity {
 
     private EditText et_msg;
     private ListView lv_msg;
-    private CommonDbHelper msgHelper,userHelper,sessionHelper;
 
-    private Session session;
+    private MessageDao messageDao;
+    private UserInfoDao userInfoDao;
+    private SessionDao sessionDao;
+
+    private SessionEntity sessionEntity;
     private String dstUid;
 
     private byte[] aesKey=null;
@@ -74,18 +78,20 @@ public class ChatActivity extends AppCompatActivity {
         lv_msg=findViewById(R.id.lv_msg);
 
 
-        session= (Session) getIntent().getSerializableExtra("session");
-        dstUid=session.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
+        sessionEntity = (SessionEntity) getIntent().getSerializableExtra("sessionEntity");
+        dstUid= sessionEntity.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
 
-        userHelper=LocalDbUtils.getUserInfoHelper(this);
-        sessionHelper=LocalDbUtils.getSessionHelper(this);
-        UserInfo dstUser= (UserInfo) userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+dstUid+"'");
+        messageDao=new MessageDao(this);
+        userInfoDao=new UserInfoDao(this);
+        sessionDao=new SessionDao(this);
+
+        UserInfoEntity dstUser=userInfoDao.getUserInfoById(dstUid);
+
         if(dstUser==null){
             finish();
             return;
         }
 
-        msgHelper= LocalDbUtils.getMsgHelper(this);
         reload();
 
         MessageLoop.addIntent(intentReport);
@@ -93,7 +99,7 @@ public class ChatActivity extends AppCompatActivity {
         markRead();
 
         setTitle("与 "+dstUser.getName()+" 的安全通信");
-        if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
+        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT){
             setTitle("与 "+dstUser.getName()+" 的绝对安全通信");
             aesKey=AESUtils.getAESKey(getIntent().getStringExtra("key"));
         }
@@ -115,9 +121,12 @@ public class ChatActivity extends AppCompatActivity {
             builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    msgHelper.execSql("DELETE FROM msg WHERE dstUid='"+dstUid+"' OR srcUid='"+dstUid+"'");
-                    reload();
-                    Toast.makeText(ChatActivity.this,"操作成功",Toast.LENGTH_SHORT).show();
+                    if(messageDao.deleteAllMessage(dstUid)){
+                        reload();
+                        Toast.makeText(ChatActivity.this,"操作成功",Toast.LENGTH_SHORT).show();
+                    }else
+                        Toast.makeText(ChatActivity.this,"操作失败",Toast.LENGTH_SHORT).show();
+
                 }
             });
             builder.show();
@@ -148,10 +157,10 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void markRead(){
-        List<Msg> unread=msgHelper.query("SELECT * FROM msg WHERE srcUid='"+dstUid+"' AND sessionId='"+session.getSessionId()+"'  AND status="+Msg.STATUS_UNREAD);
-        for(Msg msg:unread){
+        List<MessageEntity> unread=messageDao.getUnreadMessageBySessionId(sessionEntity.getSessionId());
+        for(MessageEntity messageEntity :unread){
             Map<String,byte[]> param=new HashMap<>();
-            param.put("msg_id",msg.getMsgId().getBytes());
+            param.put("msg_id", messageEntity.getMsgId().getBytes());
             param.put("src_uid",dstUid.getBytes());
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_MARK_READ,param);
             LoopResource.sendDatagram(datagram);
@@ -159,8 +168,8 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void reload(){
-        List<Msg> msgs=msgHelper.query("SELECT * FROM msg WHERE sessionId='"+session.getSessionId()+"' ORDER BY time");
-        lv_msg.setAdapter(new ChatMsgAdapter(msgs,this,dstUid,getIntent(),session.getSessionType()));
+        List<MessageEntity> messageEntities=messageDao.getAllMessage(sessionEntity.getSessionId());
+        lv_msg.setAdapter(new ChatMsgAdapter(messageEntities,this,dstUid,getIntent(), sessionEntity.getSessionType()));
         lv_msg.setSelection(lv_msg.getCount() - 1);
     }
 
@@ -171,33 +180,33 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
+        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT){
             content=AESUtils.aesEncrypt(content,aesKey);
         }
 
-        Msg msg=new Msg(UUIDUtils.getRandomUUID(),"",dstUid,session.getSessionId(),content,System.currentTimeMillis(),Msg.STATUS_SENDING);
+        MessageEntity messageEntity =new MessageEntity(UUIDUtils.getRandomUUID(),"",dstUid, sessionEntity.getSessionId(),content,System.currentTimeMillis(), MessageEntity.STATUS_SENDING);
 
         Map<String,String> sendParam=new HashMap<>();
-        sendParam.put("msg", JSON.toJSONString(msg));
+        sendParam.put("messageEntity", JSON.toJSONString(messageEntity));
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,sendParam,"");
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
-        msgHelper.insert(msg);
-        updateSessionInfo(msg);
+        messageDao.addMessage(messageEntity);
+        updateSessionInfo(messageEntity);
         reload();
     }
 
-    private void updateSessionInfo(Msg msg){
-        if(session.getSessionType()==Session.TYPE_SECRET_CHAT)
-            msg.setContent("加密信息，需密码解密查看");
+    private void updateSessionInfo(MessageEntity messageEntity){
+        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT)
+            messageEntity.setContent("加密信息，需密码解密查看");
 
-        sessionHelper.execSql("UPDATE session SET lastMessage='"+msg.getContent()+"',lastTime="+msg.getTime()+" WHERE sessionId='"+session.getSessionId()+"'");
+        sessionDao.changeLastStatus(sessionEntity.getSessionId(),messageEntity.getContent(),messageEntity.getTime());
     }
 }
 
 class ChatMsgAdapter extends BaseAdapter{
 
-    private List<Msg> msgs;
+    private List<MessageEntity> messageEntities;
     private Context context;
     private String dstUid;
     private Intent intent;
@@ -205,8 +214,8 @@ class ChatMsgAdapter extends BaseAdapter{
 
     private byte[] aesKey=null;
 
-    public ChatMsgAdapter(List<Msg> msgs, Context context,String dstUid,Intent intent,int sessionType) {
-        this.msgs = msgs;
+    public ChatMsgAdapter(List<MessageEntity> messageEntities, Context context, String dstUid, Intent intent, int sessionType) {
+        this.messageEntities = messageEntities;
         this.context = context;
         this.dstUid=dstUid;
         this.intent=intent;
@@ -215,9 +224,9 @@ class ChatMsgAdapter extends BaseAdapter{
 
     @Override
     public int getCount() {
-        if(msgs==null || msgs.isEmpty())
+        if(messageEntities ==null || messageEntities.isEmpty())
             return 0;
-        return msgs.size();
+        return messageEntities.size();
     }
 
     @Override
@@ -254,14 +263,14 @@ class ChatMsgAdapter extends BaseAdapter{
     public View getView(int i, View view, ViewGroup viewGroup) {
 
         View v=View.inflate(context,R.layout.view_show_msg,null);
-        Msg msg=msgs.get(i);
-        String content=msg.getContent();
+        MessageEntity messageEntity = messageEntities.get(i);
+        String content= messageEntity.getContent();
 
         try {
-            if(sessionType==Session.TYPE_SECRET_CHAT){
+            if(sessionType== SessionEntity.TYPE_SECRET_CHAT){
                 if(aesKey==null)
                     aesKey=AESUtils.getAESKey(intent.getStringExtra("key"));
-                content=AESUtils.aesDecrypt(msg.getContent(),aesKey);
+                content=AESUtils.aesDecrypt(messageEntity.getContent(),aesKey);
             }
         }catch (Exception e){
 
@@ -274,7 +283,7 @@ class ChatMsgAdapter extends BaseAdapter{
         ImageView iv=v.findViewById(R.id.iv);
         LinearLayout ll=v.findViewById(R.id.ll);
 
-        if(!msg.getSrcUid().equals(dstUid)){
+        if(!messageEntity.getSrcUid().equals(dstUid)){
             //自己发的，东西往右边放
             tv_msg.setGravity(Gravity.RIGHT);
             tv_time.setGravity(Gravity.RIGHT);
@@ -292,16 +301,16 @@ class ChatMsgAdapter extends BaseAdapter{
             iv.setImageResource(image);
         }
 
-        switch (msg.getStatus()){
-            case Msg.STATUS_READ:
+        switch (messageEntity.getStatus()){
+            case MessageEntity.STATUS_READ:
                 tv_status.setText("已读");
                 tv_status.setTextColor(Color.GREEN);
                 break;
-            case Msg.STATUS_UNREAD:
+            case MessageEntity.STATUS_UNREAD:
                 tv_status.setText("未读");
                 tv_status.setTextColor(Color.RED);
                 break;
-            case Msg.STATUS_SENDING:
+            case MessageEntity.STATUS_SENDING:
                 tv_status.setText("正在发送");
                 tv_status.setTextColor(Color.BLUE);
                 break;
@@ -311,7 +320,7 @@ class ChatMsgAdapter extends BaseAdapter{
                 break;
         }
 
-        tv_time.setText(TimeUtils.toStandardTime(msg.getTime()));
+        tv_time.setText(TimeUtils.toStandardTime(messageEntity.getTime()));
 
 
         return v;

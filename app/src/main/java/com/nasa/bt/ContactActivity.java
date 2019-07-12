@@ -20,12 +20,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.data.dao.UserInfoDao;
+import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
-import com.nasa.bt.utils.CommonDbHelper;
-import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
 import java.util.ArrayList;
@@ -37,8 +36,8 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     private SearchView sv_name;
     private ListView lv_contact;
-    private CommonDbHelper userHelper;
-    private List<UserInfo> userInfoList;
+    private UserInfoDao userInfoDao;
+    private List<UserInfoEntity> userInfoEntityList;
     private ProgressBar pb;
 
     private Handler userInfoHandler=new Handler(){
@@ -69,7 +68,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         sv_name=findViewById(R.id.sv_name);
         lv_contact=findViewById(R.id.lv_contact);
         pb=findViewById(R.id.pb);
-        userHelper = LocalDbUtils.getUserInfoHelper(this);
+        userInfoDao=new UserInfoDao(this);
 
         sv_name.setOnQueryTextListener(this);
         lv_contact.setOnItemClickListener(this);
@@ -107,10 +106,10 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
     }
 
     private void reload(){
-        userInfoList = userHelper.query();
-        if(userInfoList ==null)
-            userInfoList =new ArrayList<>();
-        lv_contact.setAdapter(new ShowContactAdapter(userInfoList,this));
+        userInfoEntityList=userInfoDao.getAllUserInfo();
+        if(userInfoEntityList ==null)
+            userInfoEntityList =new ArrayList<>();
+        lv_contact.setAdapter(new ShowContactAdapter(userInfoEntityList,this));
     }
 
     @Override
@@ -120,7 +119,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-        UserInfo user=userInfoList.get(i);
+        UserInfoEntity user= userInfoEntityList.get(i);
         Intent intent=new Intent(this,UserDetailActivity.class);
         intent.putExtra("user",user);
         startActivity(intent);
@@ -128,14 +127,14 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     @Override
     public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
-        final UserInfo userInfo= userInfoList.get(i);
+        final UserInfoEntity userInfoEntity = userInfoEntityList.get(i);
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
-        builder.setMessage("是否删除联系人 "+userInfo.getName()+" （删除后会保留本地聊天记录）");
+        builder.setMessage("是否删除联系人 "+ userInfoEntity.getName()+" （删除后会保留本地聊天记录）");
         builder.setNegativeButton("取消",null);
         builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                userHelper.execSql("DELETE FROM userinfo WHERE name='"+userInfo.getName()+"'");
+                userInfoDao.deleteUser(userInfoEntity.getName());
                 reload();
                 Toast.makeText(ContactActivity.this,"删除成功",Toast.LENGTH_SHORT).show();
             }
@@ -147,10 +146,10 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
 class ShowContactAdapter extends BaseAdapter{
 
-    private List<UserInfo> userList;
+    private List<UserInfoEntity> userList;
     private Context context;
 
-    public ShowContactAdapter(List<UserInfo> userList, Context context) {
+    public ShowContactAdapter(List<UserInfoEntity> userList, Context context) {
         this.userList = userList;
         this.context = context;
     }

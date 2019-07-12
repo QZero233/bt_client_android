@@ -1,15 +1,24 @@
-package com.nasa.bt.cls;
+package com.nasa.bt.data.entity;
 
-import com.nasa.bt.annotations.ClassVerCode;
 
-@ClassVerCode(3)
-public class Msg {
+import com.j256.ormlite.field.DatabaseField;
+import com.j256.ormlite.table.DatabaseTable;
+
+@DatabaseTable(tableName = "message")
+public class MessageEntity {
+    @DatabaseField(id = true)
     private String msgId;
+    @DatabaseField
     private String srcUid;
+    @DatabaseField
     private String dstUid;
+    @DatabaseField
     private String sessionId;
+    @DatabaseField
     private String content;
+    @DatabaseField
     private long time;
+    @DatabaseField
     private int status=STATUS_SENDING;
 
     public static final int STATUS_SENDING=0;
@@ -17,10 +26,10 @@ public class Msg {
     public static final int STATUS_UNREAD=1;
     public static final int STATUS_READ=2;
 
-    public Msg() {
+    public MessageEntity() {
     }
 
-    public Msg(String msgId, String srcUid, String dstUid, String sessionId, String content, long time) {
+    public MessageEntity(String msgId, String srcUid, String dstUid, String sessionId, String content, long time) {
         this.msgId = msgId;
         this.srcUid = srcUid;
         this.dstUid = dstUid;
@@ -29,7 +38,7 @@ public class Msg {
         this.time = time;
     }
 
-    public Msg(String msgId, String srcUid, String dstUid, String sessionId, String content, long time, int status) {
+    public MessageEntity(String msgId, String srcUid, String dstUid, String sessionId, String content, long time, int status) {
         this.msgId = msgId;
         this.srcUid = srcUid;
         this.dstUid = dstUid;
@@ -97,7 +106,7 @@ public class Msg {
 
     @Override
     public String toString() {
-        return "Msg{" +
+        return "MessageEntity{" +
                 "msgId='" + msgId + '\'' +
                 ", srcUid='" + srcUid + '\'' +
                 ", dstUid='" + dstUid + '\'' +

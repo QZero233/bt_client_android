@@ -24,21 +24,21 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.Msg;
-import com.nasa.bt.cls.Session;
-import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.data.dao.MessageDao;
+import com.nasa.bt.data.dao.SessionDao;
+import com.nasa.bt.data.dao.UserInfoDao;
+import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.MessageEntity;
+import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.crypt.SHA256Utils;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.loop.MessageLoopService;
-import com.nasa.bt.utils.CommonDbHelper;
-import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -65,8 +65,9 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     private ListView lv_sessions;
     private SwipeRefreshLayout sl_main;
 
-    private List<Session> sessions;
-    private CommonDbHelper sessionHelper;
+    private List<SessionEntity> sessionEntities;
+
+    private SessionDao sessionDao;
 
     MessageIntent intentMessage = new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL, changeHandler, 0, 1);
     MessageIntent intentMessageIndex = new MessageIntent("MAIN_MESSAGE_INDEX", Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX, changeHandler, 0, 1);
@@ -95,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             return;
         }
 
-        sessionHelper = LocalDbUtils.getSessionHelper(this);
+        sessionDao=new SessionDao(this);
 
         startService(new Intent(this, MessageLoopService.class));
 
@@ -114,19 +115,19 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     }
 
     private void refresh() {
-        sessions = sessionHelper.queryOrder("lastTime DESC");
-        lv_sessions.setAdapter(new MainUserAdapter(sessions,this));
+        sessionEntities=sessionDao.getAllSession();
+        lv_sessions.setAdapter(new MainUserAdapter(sessionEntities,this));
     }
 
     private void startChat(final int index) {
-        final Session session = sessions.get(index);
-        if (session.getSessionType() == Session.TYPE_NORMAL) {
+        final SessionEntity sessionEntity = sessionEntities.get(index);
+        if (sessionEntity.getSessionType() == SessionEntity.TYPE_NORMAL) {
             Intent intent = new Intent(MainActivity.this, ChatActivity.class);
-            intent.putExtra("session", session);
+            intent.putExtra("sessionEntity", sessionEntity);
             startActivity(intent);
             return;
-        } else if (session.getSessionType() == Session.TYPE_SECRET_CHAT) {
-            Map<String, String> sessionParams = session.getParamsInMap();
+        } else if (sessionEntity.getSessionType() == SessionEntity.TYPE_SECRET_CHAT) {
+            Map<String, String> sessionParams = sessionEntity.getParamsInMap();
             final String sessionKeyHash = sessionParams.get("key");
 
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -146,7 +147,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                         return;
                     } else {
                         Intent intent = new Intent(MainActivity.this, ChatActivity.class);
-                        intent.putExtra("session", session);
+                        intent.putExtra("sessionEntity", sessionEntity);
                         intent.putExtra("key", key);
                         startActivity(intent);
                     }
@@ -233,22 +234,24 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
 class MainUserAdapter extends BaseAdapter {
 
-    private List<Session> sessions;
+    private List<SessionEntity> sessionEntities;
     private Context context;
-    private CommonDbHelper msgHelper, userHelper;
+    private MessageDao messageDao;
+    private UserInfoDao userInfoDao;
 
-    public MainUserAdapter(List<Session> sessions, Context context) {
-        this.sessions = sessions;
+    public MainUserAdapter(List<SessionEntity> sessionEntities, Context context) {
+        this.sessionEntities = sessionEntities;
         this.context = context;
-        msgHelper = LocalDbUtils.getMsgHelper(context);
-        userHelper = LocalDbUtils.getUserInfoHelper(context);
+
+        messageDao=new MessageDao(context);
+        userInfoDao=new UserInfoDao(context);
     }
 
     @Override
     public int getCount() {
-        if (sessions == null || sessions.isEmpty())
+        if (sessionEntities == null || sessionEntities.isEmpty())
             return 0;
-        return sessions.size();
+        return sessionEntities.size();
     }
 
     @Override
@@ -264,7 +267,7 @@ class MainUserAdapter extends BaseAdapter {
 
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
-        Session session = sessions.get(i);
+        SessionEntity sessionEntity = sessionEntities.get(i);
 
         View v = View.inflate(context, R.layout.view_main_user, null);
 
@@ -272,34 +275,34 @@ class MainUserAdapter extends BaseAdapter {
         TextView tv_msg = v.findViewById(R.id.tv_msg);
         TextView tv_time = v.findViewById(R.id.tv_time);
 
-        String dstUid = session.getIdOfOther(LocalSettingsUtils.read(context, LocalSettingsUtils.FIELD_UID));
+        String dstUid = sessionEntity.getIdOfOther(LocalSettingsUtils.read(context, LocalSettingsUtils.FIELD_UID));
 
-        List<Msg> msgs = msgHelper.query("SELECT * FROM msg WHERE srcUid='" + dstUid + "' and sessionId='"+session.getSessionId()+"' and status=" + Msg.STATUS_UNREAD + " ORDER BY time");
-        if (msgs == null || msgs.isEmpty()) {
-            if (TextUtils.isEmpty(session.getLastMessage())) {
+        List<MessageEntity> messageEntities =messageDao.getUnreadMessageBySessionId(sessionEntity.getSessionId());
+        if (messageEntities == null || messageEntities.isEmpty()) {
+            if (TextUtils.isEmpty(sessionEntity.getLastMessage())) {
                 tv_msg.setText("无消息");
                 tv_time.setVisibility(View.GONE);
             } else {
-                tv_msg.setText(session.getLastMessage());
-                tv_time.setText(TimeUtils.toStandardTime(session.getLastTime()));
+                tv_msg.setText(sessionEntity.getLastMessage());
+                tv_time.setText(TimeUtils.toStandardTime(sessionEntity.getLastTime()));
             }
 
-            if(session.getSessionType()==Session.TYPE_SECRET_CHAT)
+            if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT)
                 tv_msg.setText("加密信息，需密码解密查看");
         } else {
-            tv_msg.setText("有 " + msgs.size() + " 条未读消息");
+            tv_msg.setText("有 " + messageEntities.size() + " 条未读消息");
             tv_msg.setTextColor(Color.RED);
-            tv_time.setText(TimeUtils.toStandardTime(msgs.get(0).getTime()));
+            tv_time.setText(TimeUtils.toStandardTime(messageEntities.get(0).getTime()));
         }
 
-        UserInfo userInfo = (UserInfo) userHelper.querySingle("SELECT * FROM userinfo WHERE id='" + dstUid + "'");
-        if (userInfo != null)
-            tv_name.setText(userInfo.getName());
+        UserInfoEntity userInfoEntity =userInfoDao.getUserInfoById(dstUid);
+        if (userInfoEntity != null)
+            tv_name.setText(userInfoEntity.getName());
         else {
             tv_name.setText("未知用户");
         }
 
-        if(session.getSessionType()==Session.TYPE_SECRET_CHAT){
+        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT){
             tv_name.setText(tv_name.getText()+"(加密聊天)");
             tv_name.setTextColor(Color.RED);
         }

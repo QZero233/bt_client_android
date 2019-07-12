@@ -10,14 +10,14 @@ import com.alibaba.fastjson.JSON;
 import com.nasa.bt.AuthInfoActivity;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.Msg;
-import com.nasa.bt.cls.Session;
-import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.data.dao.MessageDao;
+import com.nasa.bt.data.dao.SessionDao;
+import com.nasa.bt.data.dao.UserInfoDao;
+import com.nasa.bt.data.entity.MessageEntity;
+import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.log.AppLogConfigurator;
-import com.nasa.bt.utils.CommonDbHelper;
-import com.nasa.bt.utils.LocalDbUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
-import com.nasa.bt.utils.NotificationUtils;
 
 import org.apache.log4j.Logger;
 
@@ -30,7 +30,9 @@ public class ProcessorHandlers {
 
     private Context context;
 
-    private CommonDbHelper msgHelper,userHelper,sessionHelper;
+    private MessageDao messageDao;
+    private UserInfoDao userInfoDao;
+    private SessionDao sessionDao;
 
     /**
      * 已经向服务器申请具体内容的id
@@ -50,13 +52,12 @@ public class ProcessorHandlers {
 
             String uid=params.get("uid");
             String name=params.get("name");
-            UserInfo info=new UserInfo(name,uid);
+            UserInfoEntity info=new UserInfoEntity(uid,name);
 
             if(name.equals(LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_NAME)))
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,uid);
 
-            userHelper.execSql("DELETE FROM userinfo WHERE id='"+uid+"'");
-            userHelper.insert(info);
+            userInfoDao.addUser(info);
         }
     };
 
@@ -90,30 +91,28 @@ public class ProcessorHandlers {
             Datagram datagram= (Datagram) msg.obj;
 
             Map<String,String> params=datagram.getParamsAsString();
-            Msg msgGot= JSON.parseObject(params.get("msg"),Msg.class);
-            msgGot.setStatus(Msg.STATUS_UNREAD);
+            MessageEntity messageEntityGot = JSON.parseObject(params.get("msg"), MessageEntity.class);
+            messageEntityGot.setStatus(MessageEntity.STATUS_UNREAD);
 
-            log.debug("收到消息 "+msgGot);
-            removeSent(msgGot.getMsgId());
+            log.debug("收到消息 "+ messageEntityGot);
+            removeSent(messageEntityGot.getMsgId());
 
-            if(msgGot.getSrcUid().equals("system")){
-                msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE msgId='"+msgGot.getContent()+"'");
+            if(messageEntityGot.getSrcUid().equals("system")){
+                messageDao.markReadById(messageEntityGot.getContent());
             }else{
-                msgHelper.execSql("DELETE FROM msg WHERE msgId='"+msgGot.getMsgId()+"'");
-                msgHelper.insert(msgGot);
+                messageDao.addMessage(messageEntityGot);
+                sessionDao.changeLastStatus(messageEntityGot.getSessionId(),messageEntityGot.getContent(),messageEntityGot.getTime());
 
-                sessionHelper.execSql("UPDATE session SET lastMessage='"+msgGot.getContent()+"',lastTime="+msgGot.getTime()+" WHERE sessionId='"+msgGot.getSessionId()+"'");
-
-                if(sessionHelper.querySingle("SELECT * FROM session WHERE sessionId='"+msgGot.getSessionId()+"'")==null){
+                if(sessionDao.getSessionById(messageEntityGot.getSessionId())==null){
                     Map<String,String> paramsUser=new HashMap<>();
-                    paramsUser.put("session_id",msgGot.getSessionId());
+                    paramsUser.put("session_id", messageEntityGot.getSessionId());
                     Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,paramsUser,"");
                     LoopResource.sendDatagram(datagramUser);
                 }
             }
 
             Map<String,byte[]> deleteParams=new HashMap<>();
-            deleteParams.put("msg_id",msgGot.getMsgId().getBytes());
+            deleteParams.put("msg_id", messageEntityGot.getMsgId().getBytes());
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,deleteParams);
             LoopResource.sendDatagram(deleteDatagram);
            // NotificationUtils.sendNotification(context);
@@ -135,12 +134,12 @@ public class ProcessorHandlers {
 
             int status;
             if(actionReport.getActionStatus().equals("0"))
-                status=Msg.STATUS_FAILED;
+                status= MessageEntity.STATUS_FAILED;
             else
-                status=Msg.STATUS_UNREAD;
+                status= MessageEntity.STATUS_UNREAD;
 
             String id=actionReport.getReplyId();
-            msgHelper.execSql("UPDATE msg SET status="+status+" WHERE msgId='"+id+"'");
+            messageDao.changeMessageStatusById(id,status);
 
             log.debug("消息 "+id+" 状态反馈 "+status);
         }
@@ -184,28 +183,35 @@ public class ProcessorHandlers {
 
             Datagram datagram= (Datagram) msg.obj;
             Map<String,String> params=datagram.getParamsAsString();
-            String sessionStr=params.get("session");
-            Session session=JSON.parseObject(sessionStr,Session.class);
-            if(session==null)
+            String sessionStr=params.get("sessionEntity");
+            SessionEntity sessionEntity =JSON.parseObject(sessionStr, SessionEntity.class);
+            if(sessionEntity ==null)
                 return;
 
-            removeSent(session.getSessionId());
+            removeSent(sessionEntity.getSessionId());
 
             String myUid=LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_UID);
-            if(!session.checkInSession(myUid))
+            if(!sessionEntity.checkInSession(myUid))
                 return;
 
-            Session sessionLocal= (Session) sessionHelper.querySingle("SELECT * FROM session WHERE sessionId='"+session.getSessionId()+"'");
-            if(sessionLocal==null)
-                sessionHelper.insert(session);
+            sessionDao.addSession(sessionEntity);
+            /**
+             * FIXME 如果本地数据库中存在ID相同的对象，就不会进行任何更改操作（包括更新会话信息），但是如果覆盖本地就会导致一些本地数据丢失（比如最近信息）
+             */
+            /*
+            SessionEntity sessionEntityLocal = (SessionEntity) sessionHelper.querySingle("SELECT * FROM sessionEntity WHERE sessionId='"+ sessionEntity.getSessionId()+"'");
+            if(sessionEntityLocal ==null)
+                sessionHelper.insert(sessionEntity);
             else{
-                session.setLastTime(sessionLocal.getLastTime());
-                sessionHelper.update(session,session);
+                sessionEntity.setLastTime(sessionEntityLocal.getLastTime());
+                sessionHelper.update(sessionEntity, sessionEntity);
             }
+            */
 
 
-            String dstUid=session.getIdOfOther(myUid);
-            if(userHelper.querySingle("SELECT * FROM userinfo WHERE id='"+dstUid+"'")==null){
+
+            String dstUid= sessionEntity.getIdOfOther(myUid);
+            if(userInfoDao.getUserInfoById(dstUid)==null){
                 Map<String,String> paramsGet=new HashMap<>();
                 paramsGet.put("uid",dstUid);
                 Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,paramsGet,null);
@@ -250,7 +256,7 @@ public class ProcessorHandlers {
                 return;
 
             String msgId=report.getReplyId();
-            msgHelper.execSql("UPDATE msg SET status="+Msg.STATUS_READ+" WHERE msgId='"+msgId+"'");
+            messageDao.markReadById(msgId);
         }
     };
 
@@ -266,9 +272,9 @@ public class ProcessorHandlers {
     public ProcessorHandlers(Context context) {
         this.context = context;
 
-        msgHelper= LocalDbUtils.getMsgHelper(context);
-        userHelper=LocalDbUtils.getUserInfoHelper(context);
-        sessionHelper=LocalDbUtils.getSessionHelper(context);
+        messageDao=new MessageDao(context);
+        userInfoDao=new UserInfoDao(context);
+        sessionDao=new SessionDao(context);
     }
 
     public void addDefaultIntents(){

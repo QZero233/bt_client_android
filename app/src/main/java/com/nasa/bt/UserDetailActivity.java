@@ -16,8 +16,8 @@ import android.widget.Toast;
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.Session;
-import com.nasa.bt.cls.UserInfo;
+import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.SHA256Utils;
 import com.nasa.bt.loop.LoopResource;
 import com.nasa.bt.loop.MessageIntent;
@@ -29,7 +29,7 @@ import java.util.Map;
 public class UserDetailActivity extends AppCompatActivity {
 
     private ProgressBar pb;
-    private UserInfo userInfo;
+    private UserInfoEntity userInfoEntity;
     private TextView tv_name,tv_uid;
     private Handler sessionReportHandler=new Handler(){
         @Override
@@ -65,8 +65,8 @@ public class UserDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_detail);
 
-        userInfo= (UserInfo) getIntent().getSerializableExtra("user");
-        if(userInfo==null){
+        userInfoEntity = (UserInfoEntity) getIntent().getSerializableExtra("user");
+        if(userInfoEntity ==null){
             finish();
             return;
         }
@@ -75,8 +75,8 @@ public class UserDetailActivity extends AppCompatActivity {
         tv_uid=findViewById(R.id.tv_uid);
         pb=findViewById(R.id.pb);
 
-        tv_name.setText(userInfo.getName());
-        tv_uid.setText(userInfo.getId());
+        tv_name.setText(userInfoEntity.getName());
+        tv_uid.setText(userInfoEntity.getId());
 
         MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_REPORT",Datagram.IDENTIFIER_REPORT,sessionReportHandler,0,1));
         MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_DETAIL",Datagram.IDENTIFIER_RETURN_SESSION_DETAIL,sessionDetailHandler,0,1));
@@ -84,8 +84,8 @@ public class UserDetailActivity extends AppCompatActivity {
 
     public void createNormalChatSession(View v){
         Map<String,String> params=new HashMap<>();
-        params.put("session_type",String.valueOf(Session.TYPE_NORMAL));
-        params.put("uid_dst",userInfo.getId());
+        params.put("session_type",String.valueOf(SessionEntity.TYPE_NORMAL));
+        params.put("uid_dst", userInfoEntity.getId());
         params.put("params","");
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,params,null);
         LoopResource.sendDatagram(datagram);
@@ -118,8 +118,8 @@ public class UserDetailActivity extends AppCompatActivity {
                 sessionParam.put("key",keyHash);
 
                 Map<String,String> params=new HashMap<>();
-                params.put("session_type",String.valueOf(Session.TYPE_SECRET_CHAT));
-                params.put("uid_dst",userInfo.getId());
+                params.put("session_type",String.valueOf(SessionEntity.TYPE_SECRET_CHAT));
+                params.put("uid_dst", userInfoEntity.getId());
                 params.put("params",JSON.toJSONString(sessionParam));
                 Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,params,null);
                 LoopResource.sendDatagram(datagram);
