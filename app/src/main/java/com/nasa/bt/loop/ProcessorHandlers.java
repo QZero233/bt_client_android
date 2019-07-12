@@ -10,6 +10,7 @@ import com.alibaba.fastjson.JSON;
 import com.nasa.bt.AuthInfoActivity;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
@@ -74,9 +75,7 @@ public class ProcessorHandlers {
                 if(!checkSent(id))
                     continue;
 
-                Map<String,byte[]> getParams=new HashMap<>();
-                getParams.put("msg_id",id.getBytes());
-                Datagram getDatagram=new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_DETAIL,getParams);
+                Datagram getDatagram=new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_DETAIL,new ParamBuilder().putParam("msg_id",id).build());
                 LoopResource.sendDatagram(getDatagram);
                 addSent(id);
             }
@@ -104,18 +103,14 @@ public class ProcessorHandlers {
                 sessionDao.changeLastStatus(messageEntityGot.getSessionId(),messageEntityGot.getContent(),messageEntityGot.getTime());
 
                 if(sessionDao.getSessionById(messageEntityGot.getSessionId())==null){
-                    Map<String,String> paramsUser=new HashMap<>();
-                    paramsUser.put("session_id", messageEntityGot.getSessionId());
-                    Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,paramsUser,"");
+                    Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",messageEntityGot.getSessionId()).build());
                     LoopResource.sendDatagram(datagramUser);
                 }
             }
 
-            Map<String,byte[]> deleteParams=new HashMap<>();
-            deleteParams.put("msg_id", messageEntityGot.getMsgId().getBytes());
-            Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,deleteParams);
+            Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,new ParamBuilder().putParam("msg_id",messageEntityGot.getMsgId()).build());
             LoopResource.sendDatagram(deleteDatagram);
-           // NotificationUtils.sendNotification(context);
+            //TODO 通知
         }
     };
 
@@ -162,8 +157,9 @@ public class ProcessorHandlers {
                 log.info("身份验证失败");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_NAME,"");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_CODE_HASH,"");
-                Toast.makeText(context,"身份验证失败，请重新输入信息",Toast.LENGTH_SHORT).show();
-                context.startActivity(new Intent(context, AuthInfoActivity.class));
+                //FIXME
+                //Toast.makeText(context,"身份验证失败，请重新输入信息",Toast.LENGTH_SHORT).show();
+                //context.startActivity(new Intent(context, AuthInfoActivity.class));
                 return;
             }else{
                 log.info("身份验证成功，开始发送未处理数据包");
@@ -216,9 +212,7 @@ public class ProcessorHandlers {
 
             String dstUid= sessionEntity.getIdOfOther(myUid);
             if(userInfoDao.getUserInfoById(dstUid)==null){
-                Map<String,String> paramsGet=new HashMap<>();
-                paramsGet.put("uid",dstUid);
-                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,paramsGet,null);
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,new ParamBuilder().putParam("uid",dstUid).build());
                 LoopResource.sendDatagram(datagramGet);
             }
 
@@ -238,9 +232,7 @@ public class ProcessorHandlers {
                 if(!checkSent(subId))
                     continue;
 
-                Map<String,String> paramsGet=new HashMap<>();
-                paramsGet.put("session_id",subId);
-                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,paramsGet,null);
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",subId).build());
                 LoopResource.sendDatagram(datagramGet);
                 addSent(subId);
             }

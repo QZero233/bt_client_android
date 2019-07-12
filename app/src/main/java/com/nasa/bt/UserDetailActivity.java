@@ -16,6 +16,7 @@ import android.widget.Toast;
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.SHA256Utils;
@@ -42,9 +43,7 @@ public class UserDetailActivity extends AppCompatActivity {
             if(report==null || !report.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_CREATE_SESSION))
                 return;
 
-            Map<String,String> paramsGet=new HashMap<>();
-            paramsGet.put("session_id",report.getMore());
-            Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,paramsGet,null);
+            Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",report.getMore()).build());
             LoopResource.sendDatagram(datagramGet);
 
             Toast.makeText(UserDetailActivity.this,"创建成功，正在向服务器请求会话信息",Toast.LENGTH_SHORT).show();
@@ -83,11 +82,9 @@ public class UserDetailActivity extends AppCompatActivity {
     }
 
     public void createNormalChatSession(View v){
-        Map<String,String> params=new HashMap<>();
-        params.put("session_type",String.valueOf(SessionEntity.TYPE_NORMAL));
-        params.put("uid_dst", userInfoEntity.getId());
-        params.put("params","");
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,params,null);
+        ParamBuilder paramBuilder=new ParamBuilder();
+        paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_NORMAL)).putParam("uid_dst", userInfoEntity.getId()).putParam("params","");
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,paramBuilder.build());
         LoopResource.sendDatagram(datagram);
         pb.setVisibility(View.VISIBLE);
     }
@@ -117,11 +114,9 @@ public class UserDetailActivity extends AppCompatActivity {
                 Map<String,String> sessionParam=new HashMap<>();
                 sessionParam.put("key",keyHash);
 
-                Map<String,String> params=new HashMap<>();
-                params.put("session_type",String.valueOf(SessionEntity.TYPE_SECRET_CHAT));
-                params.put("uid_dst", userInfoEntity.getId());
-                params.put("params",JSON.toJSONString(sessionParam));
-                Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,params,null);
+                ParamBuilder paramBuilder=new ParamBuilder();
+                paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_SECRET_CHAT)).putParam("uid_dst", userInfoEntity.getId()).putParam("params",JSON.toJSONString(sessionParam));
+                Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,paramBuilder.build());
                 LoopResource.sendDatagram(datagram);
                 pb.setVisibility(View.VISIBLE);
             }

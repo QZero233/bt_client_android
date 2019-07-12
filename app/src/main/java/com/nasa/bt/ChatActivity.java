@@ -25,6 +25,7 @@ import android.widget.Toast;
 
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
@@ -186,9 +187,8 @@ public class ChatActivity extends AppCompatActivity {
 
         MessageEntity messageEntity =new MessageEntity(UUIDUtils.getRandomUUID(),srcUid,dstUid, sessionEntity.getSessionId(),content,System.currentTimeMillis(), MessageEntity.STATUS_SENDING);
 
-        Map<String,String> sendParam=new HashMap<>();
-        sendParam.put("msg", JSON.toJSONString(messageEntity));
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,sendParam,"");
+
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,new ParamBuilder().putParam("msg", JSON.toJSONString(messageEntity)).build());
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);
         messageDao.addMessage(messageEntity);
