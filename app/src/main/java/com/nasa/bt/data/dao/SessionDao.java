@@ -44,7 +44,7 @@ public class SessionDao {
             UpdateBuilder updateBuilder=dao.updateBuilder();
             updateBuilder.setWhere(updateBuilder.where().idEq(sessionId));
             updateBuilder.updateColumnValue("lastMessage",lastMessage);
-            updateBuilder.updateColumnValue("lastTime",lastMessage);
+            updateBuilder.updateColumnValue("lastTime",lastTime);
             return updateBuilder.update()==1;
         }catch (Exception e){
             log.error("更改最后一次状态时异常",e);

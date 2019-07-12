@@ -53,7 +53,7 @@ public class ChatActivity extends AppCompatActivity {
     private SessionDao sessionDao;
 
     private SessionEntity sessionEntity;
-    private String dstUid;
+    private String dstUid,srcUid;
 
     private byte[] aesKey=null;
 
@@ -77,9 +77,9 @@ public class ChatActivity extends AppCompatActivity {
         et_msg=findViewById(R.id.et_msg);
         lv_msg=findViewById(R.id.lv_msg);
 
-
         sessionEntity = (SessionEntity) getIntent().getSerializableExtra("sessionEntity");
-        dstUid= sessionEntity.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
+        srcUid=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID);
+        dstUid= sessionEntity.getIdOfOther(srcUid);
 
         messageDao=new MessageDao(this);
         userInfoDao=new UserInfoDao(this);
@@ -184,10 +184,10 @@ public class ChatActivity extends AppCompatActivity {
             content=AESUtils.aesEncrypt(content,aesKey);
         }
 
-        MessageEntity messageEntity =new MessageEntity(UUIDUtils.getRandomUUID(),"",dstUid, sessionEntity.getSessionId(),content,System.currentTimeMillis(), MessageEntity.STATUS_SENDING);
+        MessageEntity messageEntity =new MessageEntity(UUIDUtils.getRandomUUID(),srcUid,dstUid, sessionEntity.getSessionId(),content,System.currentTimeMillis(), MessageEntity.STATUS_SENDING);
 
         Map<String,String> sendParam=new HashMap<>();
-        sendParam.put("messageEntity", JSON.toJSONString(messageEntity));
+        sendParam.put("msg", JSON.toJSONString(messageEntity));
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,sendParam,"");
         et_msg.setText("");
         LoopResource.sendDatagram(datagram);

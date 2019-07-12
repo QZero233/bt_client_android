@@ -183,17 +183,21 @@ public class ProcessorHandlers {
 
             Datagram datagram= (Datagram) msg.obj;
             Map<String,String> params=datagram.getParamsAsString();
-            String sessionStr=params.get("sessionEntity");
+            String sessionStr=params.get("session");
             SessionEntity sessionEntity =JSON.parseObject(sessionStr, SessionEntity.class);
             if(sessionEntity ==null)
                 return;
 
             removeSent(sessionEntity.getSessionId());
 
+
             String myUid=LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_UID);
+            log.debug("收到Session "+sessionEntity);
+            log.debug("uid "+myUid);
             if(!sessionEntity.checkInSession(myUid))
                 return;
 
+            log.debug("添加Session "+sessionEntity);
             sessionDao.addSession(sessionEntity);
             /**
              * FIXME 如果本地数据库中存在ID相同的对象，就不会进行任何更改操作（包括更新会话信息），但是如果覆盖本地就会导致一些本地数据丢失（比如最近信息）

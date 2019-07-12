@@ -46,7 +46,7 @@ public class MessageDao {
         try{
             QueryBuilder queryBuilder=dao.queryBuilder();
             queryBuilder.setWhere(queryBuilder.where().eq("sessionId",sessionId).and().
-                    eq("status",MessageEntity.STATUS_UNREAD).and().not().eq("srcUid", LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_UID)));
+                    eq("status",MessageEntity.STATUS_UNREAD).and().ne("srcUid", LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_UID)));
             return queryBuilder.query();
         }catch (Exception e){
             log.error("获取未读消息时异常,sessionId="+sessionId,e);
