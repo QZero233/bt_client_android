@@ -31,13 +31,14 @@ public class MessageDao {
         }
     }
 
-    public boolean deleteAllMessage(String dstUid){
+
+    public boolean deleteAllMessage(String sessionId){
         try {
             DeleteBuilder deleteBuilder=dao.deleteBuilder();
-            deleteBuilder.setWhere(deleteBuilder.where().eq("dstUid",dstUid).or().eq("srcUid",dstUid));
+            deleteBuilder.setWhere(deleteBuilder.where().eq("sessionId",sessionId));
             return deleteBuilder.delete()!=-1;
         }catch (Exception e){
-            log.error("清空消息时异常，dstUid="+dstUid,e);
+            log.error("清空消息时异常，sessionId="+sessionId,e);
             return false;
         }
     }

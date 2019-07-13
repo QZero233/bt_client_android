@@ -28,6 +28,15 @@ public class SessionDao {
         }
     }
 
+    public boolean deleteSession(String sessionId){
+        try {
+            return dao.deleteById(sessionId)==1;
+        }catch (Exception e){
+            log.error("删除会话时异常,sessionId="+sessionId);
+            return false;
+        }
+    }
+
     public SessionEntity getSessionById(String sessionId){
         try {
             QueryBuilder queryBuilder=dao.queryBuilder();

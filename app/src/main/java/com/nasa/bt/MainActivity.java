@@ -53,6 +53,20 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private Handler mainRefreshReportHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            Datagram datagram= (Datagram) msg.obj;
+            ActionReport actionReport=JSON.parseObject(datagram.getParamsAsString().get("action_report"),ActionReport.class);
+            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_REFRESH))
+                return;
+
+            onRefreshOver();
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,18 +74,12 @@ public class MainActivity extends AppCompatActivity {
 
         /**
          * 操作顺序：
-         * -1.启动沙雕游戏
          * 0.启动服务，连接服务器
          * 1.身份验证，不通过则断线，并跳转到身份信息设置窗口，在那个窗口里发消息重连
-         * 2.拉取更新，目前版本只拉取所有Session和未读消息
+         * 2.向服务器申请刷新
          * 3.通过，启动SessionListActivity，finish
          */
 
-        if(LocalSettingsUtils.readInt(this,LocalSettingsUtils.FIELD_SD_GAME)==1){
-            startActivity(new Intent(this,SDGameActivity.class));
-            finish();
-            return;
-        }
 
         LocalDatabaseHelper.reset(this);
         KeyUtils.initContext(this);
@@ -79,8 +87,10 @@ public class MainActivity extends AppCompatActivity {
         setTitle("正在连接服务器.......");
         startService(new Intent(this, MessageLoopService.class));
 
-        MessageIntent messageIntent=new MessageIntent("MAIN_AUTH_REPORT",Datagram.IDENTIFIER_REPORT,mainAuthReportHandler,0,1);
-        MessageLoop.addIntent(messageIntent);
+        MessageIntent messageIntentAuth=new MessageIntent("MAIN_AUTH_REPORT",Datagram.IDENTIFIER_REPORT,mainAuthReportHandler,0,1);
+        MessageIntent messageIntentRefresh=new MessageIntent("MAIN_REFRESH_REPORT",Datagram.IDENTIFIER_REPORT,mainRefreshReportHandler,0,1);
+        MessageLoop.addIntent(messageIntentAuth);
+        MessageLoop.addIntent(messageIntentRefresh);
 
         String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
         String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
@@ -97,16 +107,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     private void pullUpdate(){
         setTitle("正在更新信息......");
 
-        Datagram getMessageDatagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
-        MessageLoopResource.sendDatagram(getMessageDatagram);
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
+        MessageLoopResource.sendDatagram(datagram);
+    }
 
-        Datagram getSessionDatagram=new Datagram(Datagram.IDENTIFIER_GET_SESSIONS_INDEX, null);
-        MessageLoopResource.sendDatagram(getSessionDatagram);
-
-        //TODO 等待更新拉取完成，现在暂时无法得知何时完成
+    private void onRefreshOver(){
         startActivity(new Intent(MainActivity.this,SessionListActivity.class));
         finish();
     }
@@ -164,5 +173,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"MAIN_AUTH_REPORT",1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"MAIN_REFRESH_REPORT",1);
     }
 }

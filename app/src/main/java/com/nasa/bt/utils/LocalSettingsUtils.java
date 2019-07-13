@@ -15,7 +15,6 @@ public class LocalSettingsUtils {
     public static final String FIELD_NAME_LAST="nameLast";
     public static final String FIELD_CODE_LAST="codeLast";
 
-    public static final String FIELD_SD_GAME="sdGame";
 
     public static boolean save(Context context,String field, String value){
         SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);

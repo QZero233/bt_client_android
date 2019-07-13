@@ -43,7 +43,7 @@ public class UserDetailActivity extends AppCompatActivity {
             if(report==null || !report.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_CREATE_SESSION))
                 return;
 
-            Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",report.getMore()).build());
+            Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",report.getMore()).build());
             MessageLoopResource.sendDatagram(datagramGet);
 
             Toast.makeText(UserDetailActivity.this,"创建成功，正在向服务器请求会话信息",Toast.LENGTH_SHORT).show();
@@ -78,7 +78,7 @@ public class UserDetailActivity extends AppCompatActivity {
         tv_uid.setText(userInfoEntity.getId());
 
         MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_REPORT",Datagram.IDENTIFIER_REPORT,sessionReportHandler,0,1));
-        MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_DETAIL",Datagram.IDENTIFIER_RETURN_SESSION_DETAIL,sessionDetailHandler,0,1));
+        MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL,sessionDetailHandler,0,1));
     }
 
     public void createNormalChatSession(View v){

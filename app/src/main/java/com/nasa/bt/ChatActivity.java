@@ -37,6 +37,8 @@ import com.nasa.bt.crypt.AESUtils;
 import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
+import com.nasa.bt.session.SessionProcessor;
+import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
@@ -55,9 +57,8 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
     private SessionDao sessionDao;
 
     private SessionEntity sessionEntity;
+    private SessionProcessor processor;
     private String dstUid,srcUid;
-
-    private byte[] aesKey=null;
 
     private Handler changedHandler=new Handler(){
         @Override
@@ -71,7 +72,7 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
     private long lastClickTime=0;
 
     private MessageIntent intentReport=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_REPORT,changedHandler,0,1);
-    private MessageIntent intentMessage=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,changedHandler,0,1);
+    private MessageIntent intentMessage=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_MESSAGE_DETAIL,changedHandler,0,1);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +83,13 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
         lv_msg=findViewById(R.id.lv_msg);
 
         sessionEntity = (SessionEntity) getIntent().getSerializableExtra("sessionEntity");
+        processor= SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
+
+        if(processor==null){
+            finish();
+            return;
+        }
+
         srcUid=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID);
         dstUid= sessionEntity.getIdOfOther(srcUid);
 
@@ -102,12 +110,7 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
         MessageLoop.addIntent(intentMessage);
         markRead();
 
-        setTitle("与 "+dstUser.getName()+" 的安全通信");
-        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT){
-            setTitle("与 "+dstUser.getName()+" 的绝对安全通信");
-            aesKey=AESUtils.getAESKey(getIntent().getStringExtra("key"));
-        }
-
+        setTitle("与 "+dstUser.getName()+" 的"+processor.getChatTitleEndWith());
     }
 
     @Override
@@ -125,7 +128,7 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
             builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    if(messageDao.deleteAllMessage(dstUid)){
+                    if(messageDao.deleteAllMessage(sessionEntity.getSessionId())){
                         reload();
                         Toast.makeText(ChatActivity.this,"操作成功",Toast.LENGTH_SHORT).show();
                     }else
@@ -134,6 +137,13 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
                 }
             });
             builder.show();
+        }else if(item.getItemId()==R.id.m_image){
+            //TODO 展示表情包界面
+        }else if(item.getItemId()==R.id.m_detail){
+            Intent intent=new Intent(this,SessionDetailActivity.class);
+            intent.putExtra("sessionEntity",sessionEntity);
+            startActivity(intent);
+            finish();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -142,14 +152,14 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
     protected void onDestroy() {
         super.onDestroy();
         MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intentReport.getId(),1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,intentMessage.getId(),1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL,intentMessage.getId(),1);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,intentReport.getId(),1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,intentMessage.getId(),1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL,intentMessage.getId(),1);
     }
 
     @Override
@@ -173,7 +183,7 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
 
     private void reload(){
         List<MessageEntity> messageEntities=messageDao.getAllMessage(sessionEntity.getSessionId());
-        lv_msg.setAdapter(new ChatMsgAdapter(messageEntities,this,dstUid,getIntent(), sessionEntity.getSessionType()));
+        lv_msg.setAdapter(new ChatMsgAdapter(messageEntities,this,dstUid,getIntent(), sessionEntity));
         lv_msg.setSelection(lv_msg.getCount() - 1);
         lv_msg.setOnItemClickListener(this);
     }
@@ -184,10 +194,7 @@ public class ChatActivity extends AppCompatActivity  implements AdapterView.OnIt
             Toast.makeText(this,"不能为空",Toast.LENGTH_SHORT).show();
             return;
         }
-
-        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT){
-            content=AESUtils.aesEncrypt(content,aesKey);
-        }
+        content=processor.processContentSent(content,sessionEntity,getIntent());
 
         MessageEntity messageEntity =new MessageEntity(UUIDUtils.getRandomUUID(),srcUid,dstUid, sessionEntity.getSessionId(),content,System.currentTimeMillis(), MessageEntity.STATUS_SENDING);
 
@@ -227,16 +234,16 @@ class ChatMsgAdapter extends BaseAdapter{
     private Context context;
     private String dstUid;
     private Intent intent;
-    private int sessionType;
+    private SessionProcessor processor;
+    private SessionEntity sessionEntity;
 
-    private byte[] aesKey=null;
-
-    public ChatMsgAdapter(List<MessageEntity> messageEntities, Context context, String dstUid, Intent intent, int sessionType) {
+    public ChatMsgAdapter(List<MessageEntity> messageEntities, Context context, String dstUid, Intent intent, SessionEntity sessionEntity) {
         this.messageEntities = messageEntities;
         this.context = context;
         this.dstUid=dstUid;
         this.intent=intent;
-        this.sessionType=sessionType;
+        this.sessionEntity=sessionEntity;
+        processor=SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
     }
 
     @Override
@@ -293,11 +300,7 @@ class ChatMsgAdapter extends BaseAdapter{
         String content= messageEntity.getContent();
 
         try {
-            if(sessionType== SessionEntity.TYPE_SECRET_CHAT){
-                if(aesKey==null)
-                    aesKey=AESUtils.getAESKey(intent.getStringExtra("key"));
-                content=AESUtils.aesDecrypt(messageEntity.getContent(),aesKey);
-            }
+            content=processor.processContentGot(content,sessionEntity,intent);
         }catch (Exception e){
 
         }

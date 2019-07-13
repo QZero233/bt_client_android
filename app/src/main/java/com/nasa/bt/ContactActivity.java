@@ -75,14 +75,14 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         lv_contact.setOnItemLongClickListener(this);
         reload();
 
-        MessageIntent intent=new MessageIntent("CONTACT_USER_INFO",Datagram.IDENTIFIER_RETURN_USER_INFO,userInfoHandler,0,1);
+        MessageIntent intent=new MessageIntent("CONTACT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,userInfoHandler,0,1);
         MessageLoop.addIntent(intent);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_RETURN_USER_INFO,"CONTACT_USER_INFO",1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_USER_INFO,"CONTACT_USER_INFO",1);
     }
 
     @Override
@@ -99,7 +99,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
         Map<String,byte[]> params=new HashMap<>();
         params.put("name",s.getBytes());
-        Datagram datagramQuery=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,params);
+        Datagram datagramQuery=new Datagram(Datagram.IDENTIFIER_USER_INFO,params);
         MessageLoopResource.sendDatagram(datagramQuery);
         pb.setVisibility(View.VISIBLE);
         return true;

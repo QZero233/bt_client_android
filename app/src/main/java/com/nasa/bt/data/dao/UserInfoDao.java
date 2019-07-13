@@ -49,13 +49,13 @@ public class UserInfoDao {
     }
 
 
-    public boolean deleteUser(String id){
+    public boolean deleteUser(String name){
         try {
             DeleteBuilder deleteBuilder=dao.deleteBuilder();
-            deleteBuilder.setWhere(deleteBuilder.where().idEq(id));
+            deleteBuilder.setWhere(deleteBuilder.where().eq("name",name));
             return deleteBuilder.delete()==1;
         }catch (Exception e){
-            log.error("删除用户时异常,uid="+id,e);
+            log.error("删除用户时异常,name="+name,e);
             return false;
         }
     }

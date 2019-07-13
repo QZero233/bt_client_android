@@ -75,7 +75,7 @@ public class ProcessorHandlers {
                 if(!checkSent(id))
                     continue;
 
-                Datagram getDatagram=new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_DETAIL,new ParamBuilder().putParam("msg_id",id).build());
+                Datagram getDatagram=new Datagram(Datagram.IDENTIFIER_MESSAGE_DETAIL,new ParamBuilder().putParam("msg_id",id).build());
                 MessageLoopResource.sendDatagram(getDatagram);
                 addSent(id);
             }
@@ -103,7 +103,7 @@ public class ProcessorHandlers {
                 sessionDao.changeLastStatus(messageEntityGot.getSessionId(),messageEntityGot.getContent(),messageEntityGot.getTime());
 
                 if(sessionDao.getSessionById(messageEntityGot.getSessionId())==null){
-                    Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",messageEntityGot.getSessionId()).build());
+                    Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",messageEntityGot.getSessionId()).build());
                     MessageLoopResource.sendDatagram(datagramUser);
                 }
             }
@@ -210,7 +210,7 @@ public class ProcessorHandlers {
 
             String dstUid= sessionEntity.getIdOfOther(myUid);
             if(userInfoDao.getUserInfoById(dstUid)==null){
-                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,new ParamBuilder().putParam("uid",dstUid).build());
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_USER_INFO,new ParamBuilder().putParam("uid",dstUid).build());
                 MessageLoopResource.sendDatagram(datagramGet);
             }
 
@@ -230,7 +230,7 @@ public class ProcessorHandlers {
                 if(!checkSent(subId))
                     continue;
 
-                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",subId).build());
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",subId).build());
                 MessageLoopResource.sendDatagram(datagramGet);
                 addSent(subId);
             }
@@ -254,14 +254,14 @@ public class ProcessorHandlers {
         }
     };
 
-    private MessageIntent userInfoIntent=new MessageIntent("DEFAULT_USER_INFO",Datagram.IDENTIFIER_RETURN_USER_INFO,defaultUserInfoProcessor,0,0);
-    private MessageIntent messageIntent=new MessageIntent("DEFAULT_MESSAGE",Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,defaultMessageProcessor,0,0);
-    private MessageIntent messageIndexIntent=new MessageIntent("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_RETURN_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
+    private MessageIntent userInfoIntent=new MessageIntent("DEFAULT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,defaultUserInfoProcessor,0,0);
+    private MessageIntent messageIntent=new MessageIntent("DEFAULT_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,defaultMessageProcessor,0,0);
+    private MessageIntent messageIndexIntent=new MessageIntent("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
     private MessageIntent messageStatusIntent=new MessageIntent("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_REPORT, defaultSendMessageReportHandler,0,0);
     private MessageIntent authReportIntent=new MessageIntent("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_REPORT, defaultAuthReportHandler,0,0);
     private MessageIntent markReadReportIntent=new MessageIntent("DEFAULT_MARK_READ_REPORT",Datagram.IDENTIFIER_REPORT, defaultMarkReadReportHandler,0,0);
-    private MessageIntent sessionIndexIntent=new MessageIntent("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_RETURN_SESSIONS_INDEX, defaultSessionIndexHandler,0,0);
-    private MessageIntent sessionDetailIntent=new MessageIntent("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_RETURN_SESSION_DETAIL, defaultSessionInfoHandler,0,0);
+    private MessageIntent sessionIndexIntent=new MessageIntent("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_SESSIONS_INDEX, defaultSessionIndexHandler,0,0);
+    private MessageIntent sessionDetailIntent=new MessageIntent("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL, defaultSessionInfoHandler,0,0);
 
     public ProcessorHandlers(Context context,BugTelegramApplication application) {
         this.context = context;

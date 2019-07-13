@@ -13,27 +13,23 @@ public class Datagram {
     public static final String IDENTIFIER_SIGN_IN="SIIN";
     public static final String IDENTIFIER_REPORT="REPO";
     public static final String IDENTIFIER_SEND_MESSAGE ="MESG";
-    public static final String IDENTIFIER_GET_MESSAGE_INDEX="MEGI";
-    public static final String IDENTIFIER_GET_MESSAGE_DETAIL="MEGD";
+    public static final String IDENTIFIER_MESSAGE_INDEX="MEGI";
+    public static final String IDENTIFIER_MESSAGE_DETAIL="MEGD";
     public static final String IDENTIFIER_DELETE_MESSAGE="MEDE";
-    public static final String IDENTIFIER_GET_USER_INFO="USIF";
+    public static final String IDENTIFIER_USER_INFO="USIF";
 
     public static final String IDENTIFIER_MARK_READ="MKRD";
 
-    public static final String IDENTIFIER_RETURN_MESSAGE_INDEX="MERI";
-    public static final String IDENTIFIER_RETURN_MESSAGE_DETAIL="MERD";
-    public static final String IDENTIFIER_RETURN_USER_INFO="USRF";
 
     public static final String IDENTIFIER_NONE="NONE";
     public static final String IDENTIFIER_CHANGE_KEY="CHKY";
 
     public static final String IDENTIFIER_CREATE_SESSION="CRSS";
-    public static final String IDENTIFIER_GET_SESSIONS_INDEX="GISS";
-    public static final String IDENTIFIER_GET_SESSION_DETAIL="GDSS";
+    public static final String IDENTIFIER_SESSIONS_INDEX="GISS";
+    public static final String IDENTIFIER_SESSION_DETAIL="GDSS";
     public static final String IDENTIFIER_DELETE_SESSION="DESS";
 
-    public static final String IDENTIFIER_RETURN_SESSIONS_INDEX="RISS";
-    public static final String IDENTIFIER_RETURN_SESSION_DETAIL="RDSS";
+    public static final String IDENTIFIER_REFRESH="REFE";
 
 
     /**

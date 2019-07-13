@@ -23,6 +23,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.alibaba.fastjson.JSON;
+import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
@@ -36,6 +38,9 @@ import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.loop.MessageLoopService;
+import com.nasa.bt.session.JoinSessionCallback;
+import com.nasa.bt.session.SessionProcessor;
+import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 
@@ -54,6 +59,20 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             super.handleMessage(msg);
 
             refresh();
+        }
+    };
+
+    private Handler refreshHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            Datagram datagram= (Datagram) msg.obj;
+            ActionReport actionReport= JSON.parseObject(datagram.getParamsAsString().get("action_report"),ActionReport.class);
+            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_REFRESH))
+                return;
+
+            refresh();
             if (sl_main.isRefreshing()) {
                 sl_main.setRefreshing(false);
                 Toast.makeText(SessionListActivity.this, "刷新成功", Toast.LENGTH_SHORT).show();
@@ -69,18 +88,15 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     private SessionDao sessionDao;
 
-    MessageIntent intentMessage = new MessageIntent("MAIN_MESSAGE", Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL, changeHandler, 0, 1);
-    MessageIntent intentSessionIndex = new MessageIntent("MAIN_SESSION_INDEX", Datagram.IDENTIFIER_RETURN_SESSIONS_INDEX, changeHandler, 0, 1);
-    MessageIntent intentUserInfo = new MessageIntent("MAIN_USER_INFO", Datagram.IDENTIFIER_RETURN_USER_INFO, changeHandler, 0, 1);
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_session_list);
 
-        MessageLoop.addIntent(intentMessage);
-        MessageLoop.addIntent(intentSessionIndex);
-        MessageLoop.addIntent(intentUserInfo);
+        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_MESSAGE", Datagram.IDENTIFIER_MESSAGE_DETAIL, changeHandler, 0, 1));
+        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_SESSION", Datagram.IDENTIFIER_SESSION_DETAIL, changeHandler, 0, 1));
+        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_USER_INFO", Datagram.IDENTIFIER_USER_INFO, changeHandler, 0, 1));
+        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REPORT,refreshHandler,0,1));
 
         sessionDao=new SessionDao(this);
 
@@ -98,6 +114,16 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         setTitle("当前" + LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME));
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL,"SESSION_LIST_MESSAGE",1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_SESSION_DETAIL,"SESSION_LIST_SESSION",1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_USER_INFO,"SESSION_LIST_USER_INFO",1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"SESSION_LIST_REFRESH_REPORT",1);
+    }
+
     private void refresh() {
         sessionEntities=sessionDao.getAllSession();
         lv_sessions.setAdapter(new SessionListAdapter(sessionEntities,this));
@@ -105,41 +131,22 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     private void startChat(final int index) {
         final SessionEntity sessionEntity = sessionEntities.get(index);
-        if (sessionEntity.getSessionType() == SessionEntity.TYPE_NORMAL) {
-            Intent intent = new Intent(SessionListActivity.this, ChatActivity.class);
-            intent.putExtra("sessionEntity", sessionEntity);
-            startActivity(intent);
+        SessionProcessor processor= SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
+        if(processor==null)
             return;
-        } else if (sessionEntity.getSessionType() == SessionEntity.TYPE_SECRET_CHAT) {
-            Map<String, String> sessionParams = sessionEntity.getParamsInMap();
-            final String sessionKeyHash = sessionParams.get("key");
 
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle("请输入此加密聊天的密码");
+        JoinSessionCallback callback=new JoinSessionCallback() {
+            @Override
+            public void start(Intent intentWithParams) {
+                if(intentWithParams ==null)
+                    intentWithParams=new Intent();
+                intentWithParams.putExtra("sessionEntity",sessionEntity);
+                intentWithParams.setClass(SessionListActivity.this,ChatActivity.class);
+                startActivity(intentWithParams);
+            }
+        };
 
-            final EditText et = new EditText(this);
-            et.setInputType(InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            builder.setView(et);
-            builder.setNegativeButton("取消", null);
-            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    String key = et.getText().toString();
-                    String keyHash = SHA256Utils.getSHA256InHex(key);
-                    if (!keyHash.equals(sessionKeyHash)) {
-                        Toast.makeText(SessionListActivity.this, "密码不正确", Toast.LENGTH_SHORT).show();
-                        return;
-                    } else {
-                        Intent intent = new Intent(SessionListActivity.this, ChatActivity.class);
-                        intent.putExtra("sessionEntity", sessionEntity);
-                        intent.putExtra("key", key);
-                        startActivity(intent);
-                    }
-                }
-            });
-            builder.show();
-            return;
-        }
+        processor.joinSession(sessionEntity,callback,this);
     }
 
     @Override
@@ -189,6 +196,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                 KeyUtils utils = KeyUtils.getInstance();
                 utils.genKeySet();
                 utils.saveKeySet();
+                //TODO 重连
                 Toast.makeText(this, "重置成功", Toast.LENGTH_SHORT).show();
                 finish();
             } catch (Exception e) {
@@ -210,13 +218,8 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     @Override
     public void onRefresh() {
-        Datagram datagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
         MessageLoopResource.sendDatagram(datagram);
-
-        Datagram datagram2=new Datagram(Datagram.IDENTIFIER_GET_SESSIONS_INDEX, null);
-        MessageLoopResource.sendDatagram(datagram2);
-
-        refresh();
     }
 }
 
@@ -256,6 +259,9 @@ class SessionListAdapter extends BaseAdapter {
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
         SessionEntity sessionEntity = sessionEntities.get(i);
+        SessionProcessor processor=SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
+        if(processor==null)
+            return null;
 
         View v = View.inflate(context, R.layout.view_main_user, null);
 
@@ -271,12 +277,9 @@ class SessionListAdapter extends BaseAdapter {
                 tv_msg.setText("无消息");
                 tv_time.setVisibility(View.GONE);
             } else {
-                tv_msg.setText(sessionEntity.getLastMessage());
+                tv_msg.setText(processor.getMessageMain(sessionEntity));
                 tv_time.setText(TimeUtils.toStandardTime(sessionEntity.getLastTime()));
             }
-
-            if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT)
-                tv_msg.setText("加密信息，需密码解密查看");
         } else {
             tv_msg.setText("有 " + messageEntities.size() + " 条未读消息");
             tv_msg.setTextColor(Color.RED);
@@ -285,15 +288,12 @@ class SessionListAdapter extends BaseAdapter {
 
         UserInfoEntity userInfoEntity =userInfoDao.getUserInfoById(dstUid);
         if (userInfoEntity != null)
-            tv_name.setText(userInfoEntity.getName());
+            tv_name.setText(userInfoEntity.getName()+processor.getMainNameEndWith());
         else {
             tv_name.setText("未知用户");
         }
-
-        if(sessionEntity.getSessionType()== SessionEntity.TYPE_SECRET_CHAT){
-            tv_name.setText(tv_name.getText()+"(加密聊天)");
-            tv_name.setTextColor(Color.RED);
-        }
+        if(processor.getSessionTextColor()!=-1)
+            tv_name.setTextColor(processor.getSessionTextColor());
 
         return v;
     }
