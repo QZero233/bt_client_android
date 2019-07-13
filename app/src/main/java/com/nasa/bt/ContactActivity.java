@@ -123,6 +123,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         Intent intent=new Intent(this,UserDetailActivity.class);
         intent.putExtra("user",user);
         startActivity(intent);
+        finish();
     }
 
     @Override

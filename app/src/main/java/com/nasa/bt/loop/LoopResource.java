@@ -12,9 +12,8 @@ import java.util.List;
 
 public class LoopResource {
 
-    public static final String INBOX_IDENTIFIER_DISCONNECTED="DISC";
-    public static final String INBOX_IDENTIFIER_RECONNECT="RECO";
-    public static final String INBOX_IDENTIFIER_STATUS_CHANGED="IN_STCH";
+    public static final String INBOX_IDENTIFIER_DISCONNECTED="IN_DISC";
+    public static final String INBOX_IDENTIFIER_RECONNECT="IN_RECO";
 
     private static final Logger log= AppLogConfigurator.getLogger();
 

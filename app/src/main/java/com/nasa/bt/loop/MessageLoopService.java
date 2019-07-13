@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class MessageLoopService extends Service {
 
-    public static final String SERVER_IP_DEFAULT = "208.167.242.129";//208.167.242.129
+    public static final String SERVER_IP_DEFAULT = "134.175.96.107";//208.167.242.129
     public static final int SERVER_PORT = 8848;
 
     private ProcessorHandlers handlers;

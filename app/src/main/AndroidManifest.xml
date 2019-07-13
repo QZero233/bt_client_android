@@ -11,7 +11,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".UserDetailActivity"></activity>
+        <activity android:name=".SessionListActivity" />
+        <activity android:name=".UserDetailActivity" />
         <activity android:name=".ContactActivity" />
         <activity android:name=".ChatActivity" />
         <activity android:name=".AuthInfoActivity" />

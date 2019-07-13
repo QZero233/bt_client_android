@@ -42,6 +42,14 @@ public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
         return instance;
     }
 
+    public static void reset(Context context){
+        instance=null;
+        synchronized (LocalDatabaseHelper.class){
+            if(instance==null)
+                instance=new LocalDatabaseHelper(context,getDatabaseName(context));
+        }
+    }
+
     @Override
     public void onCreate(SQLiteDatabase sqLiteDatabase, ConnectionSource connectionSource) {
         try {
