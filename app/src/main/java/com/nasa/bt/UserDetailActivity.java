@@ -20,7 +20,7 @@ import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.SHA256Utils;
-import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 
@@ -44,7 +44,7 @@ public class UserDetailActivity extends AppCompatActivity {
                 return;
 
             Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",report.getMore()).build());
-            LoopResource.sendDatagram(datagramGet);
+            MessageLoopResource.sendDatagram(datagramGet);
 
             Toast.makeText(UserDetailActivity.this,"创建成功，正在向服务器请求会话信息",Toast.LENGTH_SHORT).show();
         }
@@ -85,7 +85,7 @@ public class UserDetailActivity extends AppCompatActivity {
         ParamBuilder paramBuilder=new ParamBuilder();
         paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_NORMAL)).putParam("uid_dst", userInfoEntity.getId()).putParam("params","");
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,paramBuilder.build());
-        LoopResource.sendDatagram(datagram);
+        MessageLoopResource.sendDatagram(datagram);
         pb.setVisibility(View.VISIBLE);
     }
 
@@ -117,7 +117,7 @@ public class UserDetailActivity extends AppCompatActivity {
                 ParamBuilder paramBuilder=new ParamBuilder();
                 paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_SECRET_CHAT)).putParam("uid_dst", userInfoEntity.getId()).putParam("params",JSON.toJSONString(sessionParam));
                 Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,paramBuilder.build());
-                LoopResource.sendDatagram(datagram);
+                MessageLoopResource.sendDatagram(datagram);
                 pb.setVisibility(View.VISIBLE);
             }
         });

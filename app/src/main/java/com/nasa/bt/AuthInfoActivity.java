@@ -14,7 +14,7 @@ import android.widget.Toast;
 
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.SHA256Utils;
-import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.utils.LocalSettingsUtils;
@@ -57,7 +57,7 @@ public class AuthInfoActivity extends AppCompatActivity {
         LocalSettingsUtils.save(this,LocalSettingsUtils.FIELD_CODE_HASH,code);
         Toast.makeText(this,"设置成功，正在尝试重连",Toast.LENGTH_SHORT).show();
 
-        Datagram datagramReconnect=new Datagram(LoopResource.INBOX_IDENTIFIER_RECONNECT,null);
+        Datagram datagramReconnect=new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT,null);
         MessageLoop.processDatagram(datagramReconnect);
 
         finish();
@@ -90,7 +90,7 @@ public class AuthInfoActivity extends AppCompatActivity {
                     LocalSettingsUtils.save(AuthInfoActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
                     Toast.makeText(AuthInfoActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
 
-                    Datagram datagram = new Datagram(LoopResource.INBOX_IDENTIFIER_RECONNECT, null);
+                    Datagram datagram = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, null);
                     MessageLoop.processDatagram(datagram);
 
                     finish();

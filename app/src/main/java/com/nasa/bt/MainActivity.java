@@ -1,11 +1,16 @@
 package com.nasa.bt;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.alibaba.fastjson.JSON;
@@ -13,7 +18,7 @@ import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.data.LocalDatabaseHelper;
-import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.loop.MessageLoopService;
@@ -37,22 +42,12 @@ public class MainActivity extends AppCompatActivity {
 
             if(actionReport.getActionStatus().equals("0")){
                 //验证失败，断线，跳转
-                MessageLoop.processDatagram(new Datagram(LoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
+                MessageLoop.processDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
                 startActivity(new Intent(MainActivity.this,AuthInfoActivity.class));
                 Toast.makeText(MainActivity.this,"身份验证失败，请输入身份验证信息",Toast.LENGTH_SHORT).show();
             }else{
                 //验证成功，拉取信息
-                setTitle("正在更新信息......");
-
-                Datagram getMessageDatagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
-                LoopResource.sendDatagram(getMessageDatagram);
-
-                Datagram getSessionDatagram=new Datagram(Datagram.IDENTIFIER_GET_SESSIONS_INDEX, null);
-                LoopResource.sendDatagram(getSessionDatagram);
-
-                //TODO 等待更新拉取完成，现在暂时无法得知何时完成
-                startActivity(new Intent(MainActivity.this,SessionListActivity.class));
-                finish();
+                pullUpdate();
             }
 
         }
@@ -65,11 +60,18 @@ public class MainActivity extends AppCompatActivity {
 
         /**
          * 操作顺序：
+         * -1.启动沙雕游戏
          * 0.启动服务，连接服务器
          * 1.身份验证，不通过则断线，并跳转到身份信息设置窗口，在那个窗口里发消息重连
          * 2.拉取更新，目前版本只拉取所有Session和未读消息
          * 3.通过，启动SessionListActivity，finish
          */
+
+        if(LocalSettingsUtils.readInt(this,LocalSettingsUtils.FIELD_SD_GAME)==1){
+            startActivity(new Intent(this,SDGameActivity.class));
+            finish();
+            return;
+        }
 
         LocalDatabaseHelper.reset(this);
         KeyUtils.initContext(this);
@@ -85,10 +87,28 @@ public class MainActivity extends AppCompatActivity {
         if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
             startActivity(new Intent(this, AuthInfoActivity.class));
             Toast.makeText(this, "请设置基本信息", Toast.LENGTH_SHORT).show();
-            MessageLoop.processDatagram(new Datagram(LoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
+            MessageLoop.processDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
+            return;
         }
 
+        BugTelegramApplication application= (BugTelegramApplication) getApplication();
+        if(application.getConnectionStatus()==MessageLoopService.STATUS_CONNECTED){
+            pullUpdate();
+        }
+    }
 
+    private void pullUpdate(){
+        setTitle("正在更新信息......");
+
+        Datagram getMessageDatagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
+        MessageLoopResource.sendDatagram(getMessageDatagram);
+
+        Datagram getSessionDatagram=new Datagram(Datagram.IDENTIFIER_GET_SESSIONS_INDEX, null);
+        MessageLoopResource.sendDatagram(getSessionDatagram);
+
+        //TODO 等待更新拉取完成，现在暂时无法得知何时完成
+        startActivity(new Intent(MainActivity.this,SessionListActivity.class));
+        finish();
     }
 
     @Override
@@ -97,6 +117,47 @@ public class MainActivity extends AppCompatActivity {
         LocalDatabaseHelper.reset(this);
         setTitle("正在连接服务器.......");
         startService(new Intent(this, MessageLoopService.class));
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.m_settings) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+            final EditText et_ip = new EditText(this);
+            String ip = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_SERVER_IP);
+            if (TextUtils.isEmpty(ip))
+                ip = MessageLoopService.SERVER_IP_DEFAULT;
+            et_ip.setText(ip);
+
+            builder.setView(et_ip);
+            builder.setMessage("请输入服务器IP");
+            builder.setNegativeButton("取消", null);
+            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    String newIp = et_ip.getText().toString();
+                    if (TextUtils.isEmpty(newIp))
+                        newIp = MessageLoopService.SERVER_IP_DEFAULT;
+                    LocalSettingsUtils.save(MainActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
+                    Toast.makeText(MainActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
+
+                    Datagram datagram = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, null);
+                    MessageLoop.processDatagram(datagram);
+
+                    finish();
+                }
+            });
+            builder.show();
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

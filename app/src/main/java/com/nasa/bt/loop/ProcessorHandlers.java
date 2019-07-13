@@ -1,13 +1,11 @@
 package com.nasa.bt.loop;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Handler;
 import android.os.Message;
-import android.widget.Toast;
 
 import com.alibaba.fastjson.JSON;
-import com.nasa.bt.AuthInfoActivity;
+import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
@@ -34,6 +32,8 @@ public class ProcessorHandlers {
     private MessageDao messageDao;
     private UserInfoDao userInfoDao;
     private SessionDao sessionDao;
+
+    private BugTelegramApplication application;
 
     /**
      * 已经向服务器申请具体内容的id
@@ -76,7 +76,7 @@ public class ProcessorHandlers {
                     continue;
 
                 Datagram getDatagram=new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_DETAIL,new ParamBuilder().putParam("msg_id",id).build());
-                LoopResource.sendDatagram(getDatagram);
+                MessageLoopResource.sendDatagram(getDatagram);
                 addSent(id);
             }
 
@@ -104,12 +104,12 @@ public class ProcessorHandlers {
 
                 if(sessionDao.getSessionById(messageEntityGot.getSessionId())==null){
                     Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",messageEntityGot.getSessionId()).build());
-                    LoopResource.sendDatagram(datagramUser);
+                    MessageLoopResource.sendDatagram(datagramUser);
                 }
             }
 
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,new ParamBuilder().putParam("msg_id",messageEntityGot.getMsgId()).build());
-            LoopResource.sendDatagram(deleteDatagram);
+            MessageLoopResource.sendDatagram(deleteDatagram);
             //TODO 通知
         }
     };
@@ -157,16 +157,14 @@ public class ProcessorHandlers {
                 log.info("身份验证失败");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_NAME,"");
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_CODE_HASH,"");
-                //FIXME
-                //Toast.makeText(context,"身份验证失败，请重新输入信息",Toast.LENGTH_SHORT).show();
-                //context.startActivity(new Intent(context, AuthInfoActivity.class));
                 return;
             }else{
+                application.setConnectionStatus(MessageLoopService.STATUS_CONNECTED);
                 log.info("身份验证成功，开始发送未处理数据包");
                 log.info("获得的uid "+actionReport.getMore());
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,actionReport.getMore());
                 //处理未发出的数据包
-                LoopResource.sendUnsent();
+                MessageLoopResource.sendUnsent();
             }
         }
     };
@@ -213,7 +211,7 @@ public class ProcessorHandlers {
             String dstUid= sessionEntity.getIdOfOther(myUid);
             if(userInfoDao.getUserInfoById(dstUid)==null){
                 Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,new ParamBuilder().putParam("uid",dstUid).build());
-                LoopResource.sendDatagram(datagramGet);
+                MessageLoopResource.sendDatagram(datagramGet);
             }
 
         }
@@ -233,7 +231,7 @@ public class ProcessorHandlers {
                     continue;
 
                 Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_GET_SESSION_DETAIL,new ParamBuilder().putParam("session_id",subId).build());
-                LoopResource.sendDatagram(datagramGet);
+                MessageLoopResource.sendDatagram(datagramGet);
                 addSent(subId);
             }
 
@@ -265,8 +263,9 @@ public class ProcessorHandlers {
     private MessageIntent sessionIndexIntent=new MessageIntent("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_RETURN_SESSIONS_INDEX, defaultSessionIndexHandler,0,0);
     private MessageIntent sessionDetailIntent=new MessageIntent("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_RETURN_SESSION_DETAIL, defaultSessionInfoHandler,0,0);
 
-    public ProcessorHandlers(Context context) {
+    public ProcessorHandlers(Context context,BugTelegramApplication application) {
         this.context = context;
+        this.application=application;
 
         messageDao=new MessageDao(context);
         userInfoDao=new UserInfoDao(context);

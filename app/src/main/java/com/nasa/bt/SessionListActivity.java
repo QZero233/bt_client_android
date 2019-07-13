@@ -32,7 +32,7 @@ import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.crypt.SHA256Utils;
-import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.loop.MessageLoopService;
@@ -100,7 +100,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     private void refresh() {
         sessionEntities=sessionDao.getAllSession();
-        lv_sessions.setAdapter(new MainUserAdapter(sessionEntities,this));
+        lv_sessions.setAdapter(new SessionListAdapter(sessionEntities,this));
     }
 
     private void startChat(final int index) {
@@ -150,7 +150,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        getMenuInflater().inflate(R.menu.menu_session_list, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -177,7 +177,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                     LocalSettingsUtils.save(SessionListActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
                     Toast.makeText(SessionListActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
 
-                    Datagram datagram = new Datagram(LoopResource.INBOX_IDENTIFIER_RECONNECT, null);
+                    Datagram datagram = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, null);
                     MessageLoop.processDatagram(datagram);
 
                     finish();
@@ -200,7 +200,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_NAME, "");
             LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_CODE_HASH, "");
             LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_CODE_LAST, "");
-            Datagram datagramDisconnect = new Datagram(LoopResource.INBOX_IDENTIFIER_DISCONNECTED, null);
+            Datagram datagramDisconnect = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED, null);
             MessageLoop.processDatagram(datagramDisconnect);
             Toast.makeText(this, "退出成功", Toast.LENGTH_SHORT).show();
             finish();
@@ -211,21 +211,23 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     @Override
     public void onRefresh() {
         Datagram datagram = new Datagram(Datagram.IDENTIFIER_GET_MESSAGE_INDEX, null);
-        LoopResource.sendDatagram(datagram);
+        MessageLoopResource.sendDatagram(datagram);
 
         Datagram datagram2=new Datagram(Datagram.IDENTIFIER_GET_SESSIONS_INDEX, null);
-        LoopResource.sendDatagram(datagram2);
+        MessageLoopResource.sendDatagram(datagram2);
+
+        refresh();
     }
 }
 
-class MainUserAdapter extends BaseAdapter {
+class SessionListAdapter extends BaseAdapter {
 
     private List<SessionEntity> sessionEntities;
     private Context context;
     private MessageDao messageDao;
     private UserInfoDao userInfoDao;
 
-    public MainUserAdapter(List<SessionEntity> sessionEntities, Context context) {
+    public SessionListAdapter(List<SessionEntity> sessionEntities, Context context) {
         this.sessionEntities = sessionEntities;
         this.context = context;
 

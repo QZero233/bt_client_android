@@ -22,7 +22,7 @@ import android.widget.Toast;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.utils.LocalSettingsUtils;
@@ -100,7 +100,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         Map<String,byte[]> params=new HashMap<>();
         params.put("name",s.getBytes());
         Datagram datagramQuery=new Datagram(Datagram.IDENTIFIER_GET_USER_INFO,params);
-        LoopResource.sendDatagram(datagramQuery);
+        MessageLoopResource.sendDatagram(datagramQuery);
         pb.setVisibility(View.VISIBLE);
         return true;
     }

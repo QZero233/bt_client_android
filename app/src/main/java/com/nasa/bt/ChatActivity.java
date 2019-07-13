@@ -15,6 +15,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -33,7 +34,7 @@ import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.AESUtils;
-import com.nasa.bt.loop.LoopResource;
+import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
 import com.nasa.bt.utils.LocalSettingsUtils;
@@ -44,7 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ChatActivity extends AppCompatActivity {
+public class ChatActivity extends AppCompatActivity  implements AdapterView.OnItemClickListener {
 
     private EditText et_msg;
     private ListView lv_msg;
@@ -66,6 +67,8 @@ public class ChatActivity extends AppCompatActivity {
             markRead();
         }
     };
+
+    private long lastClickTime=0;
 
     private MessageIntent intentReport=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_REPORT,changedHandler,0,1);
     private MessageIntent intentMessage=new MessageIntent(UUIDUtils.getRandomUUID(), Datagram.IDENTIFIER_RETURN_MESSAGE_DETAIL,changedHandler,0,1);
@@ -164,7 +167,7 @@ public class ChatActivity extends AppCompatActivity {
             param.put("msg_id", messageEntity.getMsgId().getBytes());
             param.put("src_uid",dstUid.getBytes());
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_MARK_READ,param);
-            LoopResource.sendDatagram(datagram);
+            MessageLoopResource.sendDatagram(datagram);
         }
     }
 
@@ -172,6 +175,7 @@ public class ChatActivity extends AppCompatActivity {
         List<MessageEntity> messageEntities=messageDao.getAllMessage(sessionEntity.getSessionId());
         lv_msg.setAdapter(new ChatMsgAdapter(messageEntities,this,dstUid,getIntent(), sessionEntity.getSessionType()));
         lv_msg.setSelection(lv_msg.getCount() - 1);
+        lv_msg.setOnItemClickListener(this);
     }
 
     public void send(View v){
@@ -190,7 +194,7 @@ public class ChatActivity extends AppCompatActivity {
 
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE,new ParamBuilder().putParam("msg", JSON.toJSONString(messageEntity)).build());
         et_msg.setText("");
-        LoopResource.sendDatagram(datagram);
+        MessageLoopResource.sendDatagram(datagram);
         messageDao.addMessage(messageEntity);
         updateSessionInfo(messageEntity);
         reload();
@@ -201,6 +205,19 @@ public class ChatActivity extends AppCompatActivity {
             messageEntity.setContent("加密信息，需密码解密查看");
 
         sessionDao.changeLastStatus(sessionEntity.getSessionId(),messageEntity.getContent(),messageEntity.getTime());
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+        long currentClickTime=System.currentTimeMillis();
+        long deltaT=currentClickTime-lastClickTime;
+        if(deltaT>0 && deltaT<1000){
+            //双击事件
+            startActivity(new Intent(this,SDGameActivity.class));
+            finish();
+        }
+
+        lastClickTime=currentClickTime;
     }
 }
 
@@ -256,6 +273,15 @@ class ChatMsgAdapter extends BaseAdapter{
             return R.mipmap.whhj;
         if(text.equalsIgnoreCase("NASA"))
             return R.mipmap.nasa;
+        if(text.equals("鸡你太美"))
+            return R.mipmap.jntm1;
+        if(text.equals("鸡你太美2"))
+            return R.mipmap.jntm2;
+        if(text.equals("鸡你太美3"))
+            return R.mipmap.jntm3;
+        if(text.equals("鸡你太美4"))
+            return R.mipmap.jntm4;
+
         return -1;
     }
 

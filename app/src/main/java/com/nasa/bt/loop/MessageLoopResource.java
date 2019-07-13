@@ -10,7 +10,7 @@ import org.apache.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LoopResource {
+public class MessageLoopResource {
 
     public static final String INBOX_IDENTIFIER_DISCONNECTED="IN_DISC";
     public static final String INBOX_IDENTIFIER_RECONNECT="IN_RECO";
@@ -39,7 +39,6 @@ public class LoopResource {
                 }
             }
         }.start();
-
     }
 
     public static void sendUnsent(){

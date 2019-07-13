@@ -28,6 +28,10 @@ public class MessageLoopService extends Service {
     public static final String SERVER_IP_DEFAULT = "134.175.96.107";//208.167.242.129
     public static final int SERVER_PORT = 8848;
 
+    public static final int STATUS_CONNECTING=0;
+    public static final int STATUS_CONNECTED=1;
+    public static final int STATUS_DISCONNECTED=2;
+
     private ProcessorHandlers handlers;
 
     public static MessageLoopService instance = null;
@@ -49,6 +53,7 @@ public class MessageLoopService extends Service {
     };
 
     public ClientThread connection;
+
 
     @Nullable
     @Override
@@ -74,8 +79,8 @@ public class MessageLoopService extends Service {
             application.setThreadStatus(true);
         }
 
-        MessageIntent reconnectIntent = new MessageIntent("SERVICE_RECONNECT", LoopResource.INBOX_IDENTIFIER_RECONNECT, reconnectHandler, 0, 0);
-        MessageIntent disconnectIntent=new MessageIntent("SERVICE_DISCONNECT",LoopResource.INBOX_IDENTIFIER_DISCONNECTED,disconnectHandler,0,0);
+        MessageIntent reconnectIntent = new MessageIntent("SERVICE_RECONNECT", MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, reconnectHandler, 0, 0);
+        MessageIntent disconnectIntent=new MessageIntent("SERVICE_DISCONNECT", MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,disconnectHandler,0,0);
 
         MessageLoop.addIntent(reconnectIntent);
         MessageLoop.addIntent(disconnectIntent);
@@ -92,7 +97,7 @@ public class MessageLoopService extends Service {
     }
 
     public void rebind(){
-        handlers=new ProcessorHandlers(this);
+        handlers=new ProcessorHandlers(this, (BugTelegramApplication) getApplication());
         handlers.addDefaultIntents();
     }
 
@@ -115,17 +120,19 @@ class ClientThread extends Thread {
     private SocketIOHelper helper;
     private boolean running=true;
 
-    private static final Logger log= AppLogConfigurator.getLogger();
+    private BugTelegramApplication application;
 
+    private static final Logger log= AppLogConfigurator.getLogger();
 
     public ClientThread(MessageLoopService parent) {
         this.parent = parent;
+        application= (BugTelegramApplication) parent.getApplication();
     }
 
     public synchronized void stopConnection(){
         log.debug("收到断线通知，开始手动断线");
-        BugTelegramApplication application= (BugTelegramApplication) parent.getApplication();
         application.setThreadStatus(false);
+        application.setConnectionStatus(MessageLoopService.STATUS_DISCONNECTED);
 
         running=false;
         try{
@@ -152,7 +159,9 @@ class ClientThread extends Thread {
         Looper.prepare();
 
         while(running){
+            application.setConnectionStatus(MessageLoopService.STATUS_CONNECTING);
             doProcess();
+            application.setConnectionStatus(MessageLoopService.STATUS_DISCONNECTED);
             log.info("因未知原因断线，5秒后将尝试重连");
             try {
                 Thread.sleep(5000);

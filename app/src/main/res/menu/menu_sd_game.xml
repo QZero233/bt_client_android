@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/m_settings"
-        android:icon="@android:drawable/ic_menu_manage"
+        android:id="@+id/m_quit"
+        android:icon="@android:drawable/ic_delete"
         app:showAsAction="always" />
 </menu>
