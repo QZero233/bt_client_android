@@ -116,6 +116,13 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         markRead();
 
         setTitle("与 " + dstUser.getName() + " 的" + processor.getChatTitleEndWith());
+
+        if(sessionEntity.isDisabled()){
+            Button btnSend=findViewById(R.id.btn_send);
+            btnSend.setVisibility(View.GONE);
+            et_msg.setText(View.GONE);
+            setTitle(getTitle()+"（会话已关闭）");
+        }
     }
 
     @Override
