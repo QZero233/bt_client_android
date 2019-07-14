@@ -120,7 +120,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         if(sessionEntity.isDisabled()){
             Button btnSend=findViewById(R.id.btn_send);
             btnSend.setVisibility(View.GONE);
-            et_msg.setText(View.GONE);
+            et_msg.setVisibility(View.GONE);
             setTitle(getTitle()+"（会话已关闭）");
         }
     }
