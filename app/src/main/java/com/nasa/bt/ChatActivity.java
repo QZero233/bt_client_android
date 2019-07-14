@@ -22,6 +22,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -148,8 +149,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
             });
             builder.show();
         } else if (item.getItemId() == R.id.m_image) {
-
-            //TODO 展示表情包界面
+            showImageDialog();
         } else if (item.getItemId() == R.id.m_detail) {
             Intent intent = new Intent(this, SessionDetailActivity.class);
             intent.putExtra("sessionEntity", sessionEntity);
@@ -175,6 +175,40 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
             builder.show();
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showImageDialog(){
+        AlertDialog.Builder builder=new AlertDialog.Builder(this);
+
+        View v=View.inflate(this,R.layout.view_images,null);
+        final Spinner spinner=v.findViewById(R.id.sp);
+        final ImageView iv=v.findViewById(R.id.iv);
+
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                int img=ChatMsgAdapter.textToImage(spinner.getSelectedItem().toString());
+                if(img!=-1){
+                    iv.setImageResource(img);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
+
+        builder.setView(v);
+        builder.setNegativeButton("取消",null);
+        builder.setPositiveButton("选择", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                et_msg.setText(spinner.getSelectedItem().toString());
+            }
+        });
+
+        builder.show();
     }
 
     @Override
@@ -292,7 +326,7 @@ class ChatMsgAdapter extends BaseAdapter {
         return 0;
     }
 
-    private static int textToImage(String text) {
+    public static int textToImage(String text) {
         if (TextUtils.isEmpty(text))
             return -1;
         if (text.equals("手动滑稽"))

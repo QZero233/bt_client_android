@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <array name="view_image_sp">
+        <item>手动滑稽</item>
+        <item>问号滑稽</item>
+        <item>党员滑稽</item>
+        <item>党旗</item>
+        <item>国旗</item>
+        <item>北社</item>
+        <item>NASA</item>
+        <item>鸡你太美</item>
+        <item>鸡你太美2</item>
+        <item>鸡你太美3</item>
+        <item>鸡你太美4</item>
+    </array>
+
+</resources>
