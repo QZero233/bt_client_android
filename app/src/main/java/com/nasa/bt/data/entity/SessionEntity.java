@@ -32,6 +32,9 @@ public class SessionEntity implements Serializable {
     @DatabaseField
     private String lastMessage;
 
+    @DatabaseField
+    private boolean disabled=false;
+
 
     public SessionEntity() {
     }
@@ -54,6 +57,17 @@ public class SessionEntity implements Serializable {
         this.params = params;
         this.lastTime = lastTime;
         this.lastMessage = lastMessage;
+    }
+
+    public SessionEntity(String sessionId, int sessionType, String srcUid, String dstUid, String params, long lastTime, String lastMessage, boolean disabled) {
+        this.sessionId = sessionId;
+        this.sessionType = sessionType;
+        this.srcUid = srcUid;
+        this.dstUid = dstUid;
+        this.params = params;
+        this.lastTime = lastTime;
+        this.lastMessage = lastMessage;
+        this.disabled = disabled;
     }
 
     public String getSessionId() {
@@ -120,6 +134,14 @@ public class SessionEntity implements Serializable {
         this.dstUid = uidDst;
     }
 
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+    }
+
     public String getIdOfOther(String uid){
         if(uid==null)
             return null;
@@ -141,11 +163,12 @@ public class SessionEntity implements Serializable {
         return "SessionEntity{" +
                 "sessionId='" + sessionId + '\'' +
                 ", sessionType=" + sessionType +
+                ", srcUid='" + srcUid + '\'' +
+                ", dstUid='" + dstUid + '\'' +
+                ", params='" + params + '\'' +
                 ", lastTime=" + lastTime +
                 ", lastMessage='" + lastMessage + '\'' +
-                ", params='" + params + '\'' +
-                ", uidSrc='" + srcUid + '\'' +
-                ", uidDst='" + dstUid + '\'' +
+                ", disabled=" + disabled +
                 '}';
     }
 }

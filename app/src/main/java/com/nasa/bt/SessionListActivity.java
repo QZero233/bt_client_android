@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -96,6 +97,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         MessageLoop.addIntent(new MessageIntent("SESSION_LIST_MESSAGE", Datagram.IDENTIFIER_MESSAGE_DETAIL, changeHandler, 0, 1));
         MessageLoop.addIntent(new MessageIntent("SESSION_LIST_SESSION", Datagram.IDENTIFIER_SESSION_DETAIL, changeHandler, 0, 1));
         MessageLoop.addIntent(new MessageIntent("SESSION_LIST_USER_INFO", Datagram.IDENTIFIER_USER_INFO, changeHandler, 0, 1));
+        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_UPDATE", Datagram.IDENTIFIER_UPDATE_DETAIL, changeHandler, 0, 1));
         MessageLoop.addIntent(new MessageIntent("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REPORT,refreshHandler,0,1));
 
         sessionDao=new SessionDao(this);
@@ -122,6 +124,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         MessageLoop.removeIntent(Datagram.IDENTIFIER_SESSION_DETAIL,"SESSION_LIST_SESSION",1);
         MessageLoop.removeIntent(Datagram.IDENTIFIER_USER_INFO,"SESSION_LIST_USER_INFO",1);
         MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"SESSION_LIST_REFRESH_REPORT",1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_UPDATE_DETAIL,"SESSION_LIST_UPDATE",1);
     }
 
     private void refresh() {
@@ -196,7 +199,9 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                 KeyUtils utils = KeyUtils.getInstance();
                 utils.genKeySet();
                 utils.saveKeySet();
-                //TODO 重连
+
+                MessageLoopResource.sendDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT,null));
+
                 Toast.makeText(this, "重置成功", Toast.LENGTH_SHORT).show();
                 finish();
             } catch (Exception e) {
@@ -294,6 +299,11 @@ class SessionListAdapter extends BaseAdapter {
         }
         if(processor.getSessionTextColor()!=-1)
             tv_name.setTextColor(processor.getSessionTextColor());
+
+        if(sessionEntity.isDisabled()){
+            tv_name.getPaint().setFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+        }
+
 
         return v;
     }

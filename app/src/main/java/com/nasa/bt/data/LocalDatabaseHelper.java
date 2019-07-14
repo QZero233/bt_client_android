@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper;
+import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.support.ConnectionSource;
 import com.j256.ormlite.table.TableUtils;
 import com.nasa.bt.data.entity.MessageEntity;
@@ -17,7 +18,7 @@ import org.apache.log4j.Logger;
 public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
 
     private static final String LOCAL_DB_NAME_BEGIN="appData";
-    private static final int CURRENT_VER_CODE=1;
+    private static final int CURRENT_VER_CODE=2;
 
     private static final Logger log= AppLogConfigurator.getLogger();
 
@@ -64,7 +65,16 @@ public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase sqLiteDatabase, ConnectionSource connectionSource, int oldVer, int newVer) {
         if(oldVer==1){
-            //TODO 数据结构更新操作
+            /**
+             * 1.Session里面添加了 disabled字段
+             */
+            try {
+                Dao sessionDao=getDao(SessionEntity.class);
+                sessionDao.executeRaw("ALTER TABLE session ADD COLUMN disabled boolean");
+            }catch (Exception e){
+                log.error("升级版本 1—>2 时异常",e);
+            }
+
         }
     }
 }

@@ -34,7 +34,6 @@ public class SessionDetailActivity extends AppCompatActivity {
     private SessionEntity sessionEntity;
     private SessionProcessor processor;
 
-    private MessageDao messageDao;
     private SessionDao sessionDao;
     private TextView tv_name,tv_type;
     private ProgressBar pb;
@@ -51,13 +50,11 @@ public class SessionDetailActivity extends AppCompatActivity {
 
             pb.setVisibility(View.GONE);
             if(actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)){
-                Toast.makeText(SessionDetailActivity.this,"删除成功",Toast.LENGTH_SHORT).show();
-                //TODO 不删除本地消息，不删除本地会话，把类型设置为disabled
-                sessionDao.deleteSession(sessionEntity.getSessionId());
-                messageDao.deleteAllMessage(sessionEntity.getSessionId());
+                Toast.makeText(SessionDetailActivity.this,"关闭成功",Toast.LENGTH_SHORT).show();
+                sessionDao.setSessionDisabled(sessionEntity.getSessionId());
                 finish();
             }else{
-                Toast.makeText(SessionDetailActivity.this,"删除失败",Toast.LENGTH_SHORT).show();
+                Toast.makeText(SessionDetailActivity.this,"关闭失败",Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -81,7 +78,6 @@ public class SessionDetailActivity extends AppCompatActivity {
 
         String uidDst=sessionEntity.getIdOfOther(LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID));
         UserInfoDao userInfoDao=new UserInfoDao(this);
-        messageDao=new MessageDao(this);
         sessionDao=new SessionDao(this);
         UserInfoEntity userInfoEntity=userInfoDao.getUserInfoById(uidDst);
 
@@ -91,12 +87,12 @@ public class SessionDetailActivity extends AppCompatActivity {
         MessageLoop.addIntent(new MessageIntent("SESSION_DETAIL_DELETE_REPORT", Datagram.IDENTIFIER_REPORT,deleteReportHandler,0,1));
     }
 
-    public void delete(View v){
+    public void close(View v){
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
-        builder.setTitle("是否删除");
-        builder.setMessage("操作不可逆，这将会清除本地聊天记录");
+        builder.setTitle("是否关闭");
+        builder.setMessage("操作不可逆，会保留本地聊天记录");
         builder.setNegativeButton("取消",null);
-        builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton("关闭", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Datagram datagram=new Datagram(Datagram.IDENTIFIER_DELETE_SESSION, new ParamBuilder().putParam("session_id",sessionEntity.getSessionId()).build());

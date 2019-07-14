@@ -78,4 +78,16 @@ public class SessionDao {
         }
     }
 
+    public boolean setSessionDisabled(String sessionId){
+        try {
+            UpdateBuilder updateBuilder=dao.updateBuilder();
+            updateBuilder.setWhere(updateBuilder.where().idEq(sessionId));
+            updateBuilder.updateColumnValue("disabled",true);
+            return updateBuilder.update()==1;
+        }catch (Exception e){
+            log.error("在把会话设置成已删除时异常，sessionId="+sessionId);
+            return false;
+        }
+    }
+
 }

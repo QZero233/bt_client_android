@@ -14,8 +14,10 @@ import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.UpdateEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.log.AppLogConfigurator;
+import com.nasa.bt.update.UpdateProcessor;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
 import org.apache.log4j.Logger;
@@ -254,6 +256,48 @@ public class ProcessorHandlers {
         }
     };
 
+    private Handler defaultUpdateIndexHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            Datagram datagram= (Datagram) msg.obj;
+            Map<String,String> params=datagram.getParamsAsString();
+            String indexes=params.get("update_id");
+            for(int i=0;i<indexes.length()/36;i++){
+                String subId=indexes.substring(i*36,(i+1)*36);
+                if(!checkSent(subId))
+                    continue;
+
+                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_UPDATE_DETAIL,new ParamBuilder().putParam("update_id",subId).build());
+                MessageLoopResource.sendDatagram(datagramGet);
+                addSent(subId);
+            }
+        }
+    };
+
+    private Handler defaultUpdateDetailHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            Datagram datagram= (Datagram) msg.obj;
+            Map<String,String> params=datagram.getParamsAsString();
+            UpdateEntity updateEntity=JSON.parseObject(params.get("update"),UpdateEntity.class);
+
+            if(updateEntity==null)
+                return;
+
+            removeSent(updateEntity.getUpdateId());
+
+            log.debug("收到更新 "+updateEntity);
+            if(UpdateProcessor.processUpdate(updateEntity,context)){
+                Datagram datagramDelete=new Datagram(Datagram.IDENTIFIER_DELETE_UPDATE,new ParamBuilder().putParam("update_id",updateEntity.getUpdateId()).build());
+                MessageLoopResource.sendDatagram(datagramDelete);
+            }
+        }
+    };
+
     private MessageIntent userInfoIntent=new MessageIntent("DEFAULT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,defaultUserInfoProcessor,0,0);
     private MessageIntent messageIntent=new MessageIntent("DEFAULT_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,defaultMessageProcessor,0,0);
     private MessageIntent messageIndexIntent=new MessageIntent("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
@@ -262,6 +306,8 @@ public class ProcessorHandlers {
     private MessageIntent markReadReportIntent=new MessageIntent("DEFAULT_MARK_READ_REPORT",Datagram.IDENTIFIER_REPORT, defaultMarkReadReportHandler,0,0);
     private MessageIntent sessionIndexIntent=new MessageIntent("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_SESSIONS_INDEX, defaultSessionIndexHandler,0,0);
     private MessageIntent sessionDetailIntent=new MessageIntent("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL, defaultSessionInfoHandler,0,0);
+    private MessageIntent updateIndexIntent=new MessageIntent("DEFAULT_UPDATE_INDEX",Datagram.IDENTIFIER_UPDATE_INDEX,defaultUpdateIndexHandler,0,0);
+    private MessageIntent updateDetailIntent=new MessageIntent("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailHandler,0,0);
 
     public ProcessorHandlers(Context context,BugTelegramApplication application) {
         this.context = context;
@@ -281,6 +327,8 @@ public class ProcessorHandlers {
         MessageLoop.addIntent(markReadReportIntent);
         MessageLoop.addIntent(sessionDetailIntent);
         MessageLoop.addIntent(sessionIndexIntent);
+        MessageLoop.addIntent(updateIndexIntent);
+        MessageLoop.addIntent(updateDetailIntent);
     }
 
     private boolean checkSent(String msgId){
