@@ -8,6 +8,8 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,32 +31,42 @@ import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
+import java.util.Map;
+
 public class SessionDetailActivity extends AppCompatActivity {
 
     private SessionEntity sessionEntity;
     private SessionProcessor processor;
 
     private SessionDao sessionDao;
-    private TextView tv_name,tv_type;
+    private TextView tv_name,tv_type,tv_remarks;
     private ProgressBar pb;
 
-    private Handler deleteReportHandler=new Handler(){
+    private Handler reportHandler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
 
             Datagram datagram= (Datagram) msg.obj;
             ActionReport actionReport= JSON.parseObject(datagram.getParamsAsString().get("action_report"),ActionReport.class);
-            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_DELETE_SESSION))
-                return;
-
-            pb.setVisibility(View.GONE);
-            if(actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)){
-                Toast.makeText(SessionDetailActivity.this,"关闭成功",Toast.LENGTH_SHORT).show();
-                sessionDao.setSessionDisabled(sessionEntity.getSessionId());
-                finish();
-            }else{
-                Toast.makeText(SessionDetailActivity.this,"关闭失败",Toast.LENGTH_SHORT).show();
+            if(actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_DELETE_SESSION)) {
+                pb.setVisibility(View.GONE);
+                if (actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)) {
+                    Toast.makeText(SessionDetailActivity.this, "关闭成功", Toast.LENGTH_SHORT).show();
+                    sessionDao.setSessionDisabled(sessionEntity.getSessionId());
+                    finish();
+                } else {
+                    Toast.makeText(SessionDetailActivity.this, "关闭失败", Toast.LENGTH_SHORT).show();
+                }
+            }else if(actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_UPDATE_SESSION)){
+                pb.setVisibility(View.GONE);
+                if (actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)) {
+                    Toast.makeText(SessionDetailActivity.this, "更改成功", Toast.LENGTH_SHORT).show();
+                    sessionDao.addOrUpdateSession(sessionEntity);
+                    tv_remarks.setText(sessionEntity.getSpecifiedParam("remarks"));
+                } else {
+                    Toast.makeText(SessionDetailActivity.this, "更改失败", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     };
@@ -72,6 +84,7 @@ public class SessionDetailActivity extends AppCompatActivity {
 
         tv_name=findViewById(R.id.tv_name);
         tv_type=findViewById(R.id.tv_type);
+        tv_remarks=findViewById(R.id.tv_remarks);
         pb=findViewById(R.id.pb);
 
         processor= SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
@@ -82,9 +95,18 @@ public class SessionDetailActivity extends AppCompatActivity {
         UserInfoEntity userInfoEntity=userInfoDao.getUserInfoById(uidDst);
 
         tv_name.setText(userInfoEntity.getName());
-        tv_type.setText(processor.getName());
+        tv_type.setText(processor.getSessionProperties().getSessionName());
 
-        MessageLoop.addIntent(new MessageIntent("SESSION_DETAIL_DELETE_REPORT", Datagram.IDENTIFIER_REPORT,deleteReportHandler,0,1));
+        String remarks=sessionEntity.getParamsInMap().get("remarks");
+        if(remarks==null)
+            remarks="";
+        tv_remarks.setText(remarks);
+
+        Button btn_clean=findViewById(R.id.btn_clean);
+        if(!sessionEntity.isDisabled())
+            btn_clean.setText("清空聊天记录");
+
+        MessageLoop.addIntent(new MessageIntent("SESSION_DETAIL_DELETE_REPORT", Datagram.IDENTIFIER_REPORT,reportHandler,0,1));
     }
 
     public void close(View v){
@@ -100,6 +122,82 @@ public class SessionDetailActivity extends AppCompatActivity {
                 pb.setVisibility(View.VISIBLE);
             }
         });
+        builder.show();
+    }
+
+    public void clean(View v){
+
+        final MessageDao messageDao=new MessageDao(this);
+
+        if(sessionEntity.isDisabled()){
+            //删除本地会话
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("确认删除会话并清空聊天记录");
+            builder.setMessage("操作不可逆");
+            builder.setNegativeButton("取消", null);
+            builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    if (messageDao.deleteAllMessage(sessionEntity.getSessionId()) && sessionDao.deleteSession(sessionEntity.getSessionId())) {
+                        Toast.makeText(SessionDetailActivity.this, "操作成功", Toast.LENGTH_SHORT).show();
+                        finish();
+                    } else
+                        Toast.makeText(SessionDetailActivity.this, "操作失败", Toast.LENGTH_SHORT).show();
+
+                }
+            });
+            builder.show();
+        }else{
+            //清空聊天记录
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("确认清除聊天记录");
+            builder.setMessage("操作不可逆");
+            builder.setNegativeButton("取消", null);
+            builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    if (messageDao.deleteAllMessage(sessionEntity.getSessionId())) {
+                        Toast.makeText(SessionDetailActivity.this, "操作成功", Toast.LENGTH_SHORT).show();
+                    } else
+                        Toast.makeText(SessionDetailActivity.this, "操作失败", Toast.LENGTH_SHORT).show();
+
+                }
+            });
+            builder.show();
+        }
+    }
+
+    public void updateDetail(View view){
+        AlertDialog.Builder builder=new AlertDialog.Builder(this);
+
+        final EditText et_remarks=new EditText(this);
+        String remarks=sessionEntity.getSpecifiedParam("remarks");
+        if(remarks==null)
+            remarks="";
+        et_remarks.setText(remarks);
+
+        builder.setTitle("请输入新备注");
+        builder.setView(et_remarks);
+        builder.setCancelable(false);
+
+        builder.setNegativeButton("取消",null);
+        builder.setPositiveButton("更改", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                String remarks=et_remarks.getText().toString();
+
+                Map<String,String> params=sessionEntity.getParamsInMap();
+                params.put("remarks",remarks);
+                sessionEntity.setParamsInMap(params);
+
+                Datagram datagram=new Datagram(Datagram.IDENTIFIER_UPDATE_SESSION,new ParamBuilder().putParam("session_id",sessionEntity.getSessionId()).
+                        putParam("params",sessionEntity.getParams()).build());
+                MessageLoopResource.sendDatagram(datagram);
+                Toast.makeText(SessionDetailActivity.this,"正在更改......",Toast.LENGTH_SHORT).show();
+                pb.setVisibility(View.VISIBLE);
+            }
+        });
+
         builder.show();
     }
 

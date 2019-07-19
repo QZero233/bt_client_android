@@ -7,24 +7,10 @@ import android.graphics.Color;
 import com.nasa.bt.data.entity.SessionEntity;
 
 public class NormalSessionProcessor implements SessionProcessor {
-    @Override
-    public String getName() {
-        return "普通会话";
-    }
 
     @Override
-    public int getSessionTextColor() {
-        return -1;
-    }
-
-    @Override
-    public String getChatTitleEndWith() {
-        return "安全通信";
-    }
-
-    @Override
-    public String getMainNameEndWith() {
-        return "";
+    public SessionProperties getSessionProperties() {
+        return new SessionProperties("普通会话",-1,"安全通信","");
     }
 
     @Override

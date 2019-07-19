@@ -28,6 +28,12 @@ public class UpdateProcessor {
             String deleteSessionId=updateEntity.getMore();
             SessionDao sessionDao=new SessionDao(context);
             return sessionDao.setSessionDisabled(deleteSessionId);
+        }else if(type==UpdateEntity.TYPE_SESSION_UPDATED){
+            log.debug("会话被更新，收到更新");
+            String sessionId=updateEntity.getMore();
+            Datagram datagram=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",sessionId).build());
+            MessageLoopResource.sendDatagram(datagram);
+            return true;
         }
 
         //未知类型，返回处理失败

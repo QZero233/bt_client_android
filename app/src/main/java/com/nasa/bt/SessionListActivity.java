@@ -11,7 +11,6 @@ import android.os.Message;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -34,7 +33,6 @@ import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.KeyUtils;
-import com.nasa.bt.crypt.SHA256Utils;
 import com.nasa.bt.loop.MessageLoopResource;
 import com.nasa.bt.loop.MessageIntent;
 import com.nasa.bt.loop.MessageLoop;
@@ -42,16 +40,16 @@ import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.session.JoinSessionCallback;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
+import com.nasa.bt.session.SessionProperties;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 心中有党，成绩理想
  */
-public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
+public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener {
 
 
     private Handler changeHandler = new Handler() {
@@ -112,6 +110,8 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                 startChat(i);
             }
         });
+        lv_sessions.setOnItemLongClickListener(this);
+
         refresh();
         setTitle("当前" + LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME));
     }
@@ -226,6 +226,14 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
         MessageLoopResource.sendDatagram(datagram);
     }
+
+    @Override
+    public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
+        Intent intent = new Intent(this, SessionDetailActivity.class);
+        intent.putExtra("sessionEntity", sessionEntities.get(i));
+        startActivity(intent);
+        return true;
+    }
 }
 
 class SessionListAdapter extends BaseAdapter {
@@ -265,14 +273,16 @@ class SessionListAdapter extends BaseAdapter {
     public View getView(int i, View view, ViewGroup viewGroup) {
         SessionEntity sessionEntity = sessionEntities.get(i);
         SessionProcessor processor=SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
+        SessionProperties sessionProperties=processor.getSessionProperties();
         if(processor==null)
             return null;
 
-        View v = View.inflate(context, R.layout.view_main_user, null);
+        View v = View.inflate(context, R.layout.view_session_list_session, null);
 
         TextView tv_name = v.findViewById(R.id.tv_name);
         TextView tv_msg = v.findViewById(R.id.tv_msg);
         TextView tv_time = v.findViewById(R.id.tv_time);
+        TextView tv_remarks=v.findViewById(R.id.tv_remarks);
 
         String dstUid = sessionEntity.getIdOfOther(LocalSettingsUtils.read(context, LocalSettingsUtils.FIELD_UID));
 
@@ -293,15 +303,22 @@ class SessionListAdapter extends BaseAdapter {
 
         UserInfoEntity userInfoEntity =userInfoDao.getUserInfoById(dstUid);
         if (userInfoEntity != null)
-            tv_name.setText(userInfoEntity.getName()+processor.getMainNameEndWith());
+            tv_name.setText(userInfoEntity.getName()+sessionProperties.getMainNameEndWith());
         else {
             tv_name.setText("未知用户");
         }
-        if(processor.getSessionTextColor()!=-1)
-            tv_name.setTextColor(processor.getSessionTextColor());
+        if(sessionProperties.getSessionTextColor()!=-1)
+            tv_name.setTextColor(sessionProperties.getSessionTextColor());
 
         if(sessionEntity.isDisabled()){
             tv_name.getPaint().setFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+        }
+
+        String remarks=sessionEntity.getParamsInMap().get("remarks");
+        if(TextUtils.isEmpty(remarks)){
+           tv_remarks.setText("无备注");
+        }else{
+            tv_remarks.setText("备注:"+remarks);
         }
 
 

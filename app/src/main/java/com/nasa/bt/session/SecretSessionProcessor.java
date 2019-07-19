@@ -20,23 +20,8 @@ public class SecretSessionProcessor implements SessionProcessor {
     private byte[] aesKey=null;
 
     @Override
-    public String getName() {
-        return "加密会话";
-    }
-
-    @Override
-    public int getSessionTextColor() {
-        return Color.RED;
-    }
-
-    @Override
-    public String getChatTitleEndWith() {
-        return "绝对安全通信";
-    }
-
-    @Override
-    public String getMainNameEndWith() {
-        return "(加密聊天)";
+    public SessionProperties getSessionProperties() {
+        return new SessionProperties("加密会话",Color.RED,"绝对安全通信","(加密聊天)");
     }
 
     @Override
@@ -53,7 +38,7 @@ public class SecretSessionProcessor implements SessionProcessor {
         builder.setTitle("请输入此加密聊天的密码");
 
         final EditText et = new EditText(context);
-        et.setInputType(InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        et.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
         builder.setView(et);
         builder.setNegativeButton("取消", null);
         builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {

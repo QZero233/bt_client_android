@@ -7,13 +7,12 @@ import com.nasa.bt.log.AppLogConfigurator;
 public class BugTelegramApplication extends Application {
 
     private boolean threadRunning=false;
-    private int connectionStatus;
 
-    public synchronized void setThreadStatus(boolean status){
-        threadRunning=status;
+    public synchronized void setThreadRunningStatus(boolean isRunning){
+        threadRunning=isRunning;
     }
 
-    public synchronized boolean getThreadStatus(){
+    public synchronized boolean isThreadRunning(){
         return threadRunning;
     }
 
@@ -23,11 +22,4 @@ public class BugTelegramApplication extends Application {
         AppLogConfigurator.configure();
     }
 
-    public synchronized int getConnectionStatus() {
-        return connectionStatus;
-    }
-
-    public synchronized void setConnectionStatus(int status){
-        connectionStatus=status;
-    }
 }

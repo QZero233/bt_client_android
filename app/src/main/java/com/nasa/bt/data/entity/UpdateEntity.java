@@ -6,6 +6,7 @@ public class UpdateEntity {
 
     public static final int TYPE_SESSION_DELETE=1;
     public static final int TYPE_SESSION_CREATE=2;
+    public static final int TYPE_SESSION_UPDATED=3;
 
     private String updateId;
     private String srcUid;

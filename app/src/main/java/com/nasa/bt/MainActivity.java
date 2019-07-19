@@ -45,9 +45,6 @@ public class MainActivity extends AppCompatActivity {
                 MessageLoop.processDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
                 startActivity(new Intent(MainActivity.this,AuthInfoActivity.class));
                 Toast.makeText(MainActivity.this,"身份验证失败，请输入身份验证信息",Toast.LENGTH_SHORT).show();
-            }else{
-                //验证成功，拉取信息
-                pullUpdate();
             }
 
         }
@@ -81,6 +78,15 @@ public class MainActivity extends AppCompatActivity {
          */
 
 
+        String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
+        String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
+        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
+            startActivity(new Intent(this, AuthInfoActivity.class));
+            Toast.makeText(this, "请设置基本信息", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
         LocalDatabaseHelper.reset(this);
         KeyUtils.initContext(this);
 
@@ -92,19 +98,7 @@ public class MainActivity extends AppCompatActivity {
         MessageLoop.addIntent(messageIntentAuth);
         MessageLoop.addIntent(messageIntentRefresh);
 
-        String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
-        String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
-        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
-            startActivity(new Intent(this, AuthInfoActivity.class));
-            Toast.makeText(this, "请设置基本信息", Toast.LENGTH_SHORT).show();
-            MessageLoop.processDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
-            return;
-        }
-
-        BugTelegramApplication application= (BugTelegramApplication) getApplication();
-        if(application.getConnectionStatus()==MessageLoopService.STATUS_CONNECTED){
-            pullUpdate();
-        }
+        pullUpdate();
     }
 
 
@@ -118,14 +112,6 @@ public class MainActivity extends AppCompatActivity {
     private void onRefreshOver(){
         startActivity(new Intent(MainActivity.this,SessionListActivity.class));
         finish();
-    }
-
-    @Override
-    protected void onRestart() {
-        super.onRestart();
-        LocalDatabaseHelper.reset(this);
-        setTitle("正在连接服务器.......");
-        startService(new Intent(this, MessageLoopService.class));
     }
 
     @Override

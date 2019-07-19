@@ -73,10 +73,10 @@ public class MessageLoopService extends Service {
         rebind();
 
         BugTelegramApplication application= (BugTelegramApplication) getApplication();
-        if(!application.getThreadStatus()){
+        if(!application.isThreadRunning()){
             connection = new ClientThread(this);
             connection.start();
-            application.setThreadStatus(true);
+            application.setThreadRunningStatus(true);
         }
 
         MessageIntent reconnectIntent = new MessageIntent("SERVICE_RECONNECT", MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, reconnectHandler, 0, 0);
@@ -97,7 +97,7 @@ public class MessageLoopService extends Service {
     }
 
     public void rebind(){
-        handlers=new ProcessorHandlers(this, (BugTelegramApplication) getApplication());
+        handlers=new ProcessorHandlers(this);
         handlers.addDefaultIntents();
     }
 
@@ -131,8 +131,7 @@ class ClientThread extends Thread {
 
     public synchronized void stopConnection(){
         log.debug("收到断线通知，开始手动断线");
-        application.setThreadStatus(false);
-        application.setConnectionStatus(MessageLoopService.STATUS_DISCONNECTED);
+        application.setThreadRunningStatus(false);
 
         running=false;
         try{
@@ -159,9 +158,7 @@ class ClientThread extends Thread {
         Looper.prepare();
 
         while(running){
-            application.setConnectionStatus(MessageLoopService.STATUS_CONNECTING);
             doProcess();
-            application.setConnectionStatus(MessageLoopService.STATUS_DISCONNECTED);
             log.info("因未知原因断线，5秒后将尝试重连");
             try {
                 Thread.sleep(5000);

@@ -28,6 +28,7 @@ public class Datagram {
     public static final String IDENTIFIER_SESSIONS_INDEX="GISS";
     public static final String IDENTIFIER_SESSION_DETAIL="GDSS";
     public static final String IDENTIFIER_DELETE_SESSION="DESS";
+    public static final String IDENTIFIER_UPDATE_SESSION="UPSS";
 
     public static final String IDENTIFIER_REFRESH="REFE";
 

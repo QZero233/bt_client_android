@@ -93,8 +93,9 @@ public class UserDetailActivity extends AppCompatActivity {
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
 
         View v=View.inflate(this,R.layout.view_create_secret_chat,null);
-        final TextInputEditText et_key;
+        final TextInputEditText et_key,et_remarks;
         et_key=v.findViewById(R.id.et_key);
+        et_remarks=v.findViewById(R.id.et_remarks);
 
         builder.setTitle("创建私密聊天");
         builder.setCancelable(false);
@@ -103,6 +104,10 @@ public class UserDetailActivity extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 String key=et_key.getText().toString();
+                String remarks=et_remarks.getText().toString();
+
+                if(TextUtils.isEmpty(remarks))
+                    remarks="私密聊天";
 
                 if(TextUtils.isEmpty(key)){
                     Toast.makeText(UserDetailActivity.this, "不能为空", Toast.LENGTH_SHORT).show();
@@ -113,6 +118,7 @@ public class UserDetailActivity extends AppCompatActivity {
 
                 Map<String,String> sessionParam=new HashMap<>();
                 sessionParam.put("key",keyHash);
+                sessionParam.put("remarks",remarks);
 
                 ParamBuilder paramBuilder=new ParamBuilder();
                 paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_SECRET_CHAT)).putParam("uid_dst", userInfoEntity.getId()).putParam("params",JSON.toJSONString(sessionParam));

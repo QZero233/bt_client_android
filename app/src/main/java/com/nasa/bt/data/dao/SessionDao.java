@@ -70,9 +70,17 @@ public class SessionDao {
         }
     }
 
-    public void addSession(SessionEntity sessionEntity){
+    public void addOrUpdateSession(SessionEntity sessionEntity){
         try{
-            dao.createIfNotExists(sessionEntity);//FIXME 无法更新
+            SessionEntity sessionEntityExists=getSessionById(sessionEntity.getSessionId());
+            if(sessionEntityExists!=null){
+                UpdateBuilder updateBuilder=dao.updateBuilder();
+                updateBuilder.setWhere(updateBuilder.where().idEq(sessionEntity.getSessionId()));
+                updateBuilder.updateColumnValue("params",sessionEntity.getParams());
+                updateBuilder.update();
+            }else{
+                dao.create(sessionEntity);
+            }
         }catch (Exception e){
             log.error("添加会话时异常",e);
         }

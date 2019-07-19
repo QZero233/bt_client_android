@@ -1,11 +1,14 @@
 package com.nasa.bt.data.entity;
 
+import android.nfc.tech.NfcA;
+
 import com.alibaba.fastjson.JSON;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.table.DatabaseTable;
 
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 
 @DatabaseTable(tableName = "session")
@@ -111,7 +114,10 @@ public class SessionEntity implements Serializable {
     }
 
     public Map<String,String> getParamsInMap(){
-        return (Map<String, String>) JSON.parse(params);
+        Map<String, String> result=(Map<String, String>) JSON.parse(params);
+        if(result==null)
+            return new HashMap<>();
+        return result;
     }
 
     public void setParamsInMap(Map<String,String> params){
@@ -156,6 +162,13 @@ public class SessionEntity implements Serializable {
         if(!uid.equals(srcUid) && !uid.equals(dstUid))
             return false;
         return true;
+    }
+
+    public String getSpecifiedParam(String name){
+        Map params=getParamsInMap();
+        if(params==null)
+            return null;
+        return (String) params.get(name);
     }
 
     @Override

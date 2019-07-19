@@ -5,7 +5,6 @@ import android.os.Handler;
 import android.os.Message;
 
 import com.alibaba.fastjson.JSON;
-import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
@@ -34,8 +33,6 @@ public class ProcessorHandlers {
     private MessageDao messageDao;
     private UserInfoDao userInfoDao;
     private SessionDao sessionDao;
-
-    private BugTelegramApplication application;
 
     /**
      * 已经向服务器申请具体内容的id
@@ -161,7 +158,6 @@ public class ProcessorHandlers {
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_CODE_HASH,"");
                 return;
             }else{
-                application.setConnectionStatus(MessageLoopService.STATUS_CONNECTED);
                 log.info("身份验证成功，开始发送未处理数据包");
                 log.info("获得的uid "+actionReport.getMore());
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,actionReport.getMore());
@@ -193,22 +189,11 @@ public class ProcessorHandlers {
             if(!sessionEntity.checkInSession(myUid))
                 return;
 
-            log.debug("添加Session "+sessionEntity);
-            sessionDao.addSession(sessionEntity);
             /**
-             * FIXME 如果本地数据库中存在ID相同的对象，就不会进行任何更改操作（包括更新会话信息），但是如果覆盖本地就会导致一些本地数据丢失（比如最近信息）
+             * 若本地存在ID相同的对象，就更新其params属性，如果不存在则添加
              */
-            /*
-            SessionEntity sessionEntityLocal = (SessionEntity) sessionHelper.querySingle("SELECT * FROM sessionEntity WHERE sessionId='"+ sessionEntity.getSessionId()+"'");
-            if(sessionEntityLocal ==null)
-                sessionHelper.insert(sessionEntity);
-            else{
-                sessionEntity.setLastTime(sessionEntityLocal.getLastTime());
-                sessionHelper.update(sessionEntity, sessionEntity);
-            }
-            */
-
-
+            log.debug("添加Session "+sessionEntity);
+            sessionDao.addOrUpdateSession(sessionEntity);
 
             String dstUid= sessionEntity.getIdOfOther(myUid);
             if(userInfoDao.getUserInfoById(dstUid)==null){
@@ -309,9 +294,8 @@ public class ProcessorHandlers {
     private MessageIntent updateIndexIntent=new MessageIntent("DEFAULT_UPDATE_INDEX",Datagram.IDENTIFIER_UPDATE_INDEX,defaultUpdateIndexHandler,0,0);
     private MessageIntent updateDetailIntent=new MessageIntent("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailHandler,0,0);
 
-    public ProcessorHandlers(Context context,BugTelegramApplication application) {
+    public ProcessorHandlers(Context context) {
         this.context = context;
-        this.application=application;
 
         messageDao=new MessageDao(context);
         userInfoDao=new UserInfoDao(context);

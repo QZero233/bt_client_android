@@ -115,7 +115,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
 
         markRead();
 
-        setTitle("与 " + dstUser.getName() + " 的" + processor.getChatTitleEndWith());
+        setTitle("与 " + dstUser.getName() + " 的" + processor.getSessionProperties().getChatTitleEndWith());
 
         if(sessionEntity.isDisabled()){
             Button btnSend=findViewById(R.id.btn_send);
