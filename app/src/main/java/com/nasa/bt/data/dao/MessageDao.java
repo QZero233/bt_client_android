@@ -69,11 +69,11 @@ public class MessageDao {
         }
     }
 
-    public void addMessage(MessageEntity messageEntity){
+    public void addMessage(MessageEntity messageEntity) {
         try {
             dao.createIfNotExists(messageEntity);
-        }catch (Exception e){
-            log.error("插入消息时异常",e);
+        } catch (Exception e) {
+            log.error("插入消息时异常", e);
         }
     }
 
@@ -91,6 +91,18 @@ public class MessageDao {
 
     public boolean markReadById(String msgId){
         return changeMessageStatusById(msgId,MessageEntity.STATUS_READ);
+    }
+
+    public List<MessageEntity> getAllUnreadMessages(){
+        try {
+            QueryBuilder queryBuilder=dao.queryBuilder();
+            queryBuilder.setWhere(queryBuilder.where().eq("status",MessageEntity.STATUS_UNREAD));
+            queryBuilder.orderBy("time",true);
+            return queryBuilder.query();
+        }catch (Exception e){
+            log.error("在获取全部未读消息时异常",e);
+            return null;
+        }
     }
 
 }

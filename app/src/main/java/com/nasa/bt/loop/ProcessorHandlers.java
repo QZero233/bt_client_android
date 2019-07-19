@@ -18,6 +18,7 @@ import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.update.UpdateProcessor;
 import com.nasa.bt.utils.LocalSettingsUtils;
+import com.nasa.bt.utils.NotificationUtils;
 
 import org.apache.log4j.Logger;
 
@@ -33,6 +34,7 @@ public class ProcessorHandlers {
     private MessageDao messageDao;
     private UserInfoDao userInfoDao;
     private SessionDao sessionDao;
+    private NotificationUtils notificationUtils;
 
     /**
      * 已经向服务器申请具体内容的id
@@ -109,7 +111,8 @@ public class ProcessorHandlers {
 
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,new ParamBuilder().putParam("msg_id",messageEntityGot.getMsgId()).build());
             MessageLoopResource.sendDatagram(deleteDatagram);
-            //TODO 通知
+
+            notificationUtils.sendMessageNotification();
         }
     };
 
@@ -300,6 +303,7 @@ public class ProcessorHandlers {
         messageDao=new MessageDao(context);
         userInfoDao=new UserInfoDao(context);
         sessionDao=new SessionDao(context);
+        notificationUtils=new NotificationUtils(context);
     }
 
     public void addDefaultIntents(){
