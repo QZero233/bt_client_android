@@ -102,9 +102,17 @@ public class SessionDetailActivity extends AppCompatActivity {
             remarks="";
         tv_remarks.setText(remarks);
 
-        Button btn_clean=findViewById(R.id.btn_clean);
-        if(!sessionEntity.isDisabled())
+
+        if(!sessionEntity.isDisabled()){
+            Button btn_clean=findViewById(R.id.btn_clean);
             btn_clean.setText("清空聊天记录");
+        }else{
+            Button btn_update=findViewById(R.id.btn_update);
+            btn_update.setVisibility(View.GONE);
+            Button btn_close=findViewById(R.id.btn_close);
+            btn_close.setVisibility(View.GONE);
+        }
+
 
         MessageLoop.addIntent(new MessageIntent("SESSION_DETAIL_DELETE_REPORT", Datagram.IDENTIFIER_REPORT,reportHandler,0,1));
     }

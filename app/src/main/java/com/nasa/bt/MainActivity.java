@@ -47,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
                 MessageLoop.processDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
                 startActivity(new Intent(MainActivity.this,AuthInfoActivity.class));
                 Toast.makeText(MainActivity.this,"身份验证失败，请输入身份验证信息",Toast.LENGTH_SHORT).show();
+            }else{
+                pullUpdate();
             }
 
         }
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
          * 3.通过，启动SessionListActivity，finish
          */
 
+        //TODO 在程序打开后清除所有通知
 
         String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
         String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);

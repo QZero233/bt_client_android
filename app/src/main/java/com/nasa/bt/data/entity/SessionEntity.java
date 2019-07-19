@@ -3,6 +3,7 @@ package com.nasa.bt.data.entity;
 import android.nfc.tech.NfcA;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.parser.ParserConfig;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.table.DatabaseTable;
 

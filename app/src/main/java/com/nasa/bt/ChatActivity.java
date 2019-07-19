@@ -49,7 +49,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-//TODO 待在聊天界面时如果对方关闭了会话需要退出才能知道
 public class ChatActivity extends AppCompatActivity implements AdapterView.OnItemClickListener {
 
     private EditText et_msg;
@@ -72,11 +71,22 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         }
     };
 
+    private Handler sessionHandler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            reloadSession();
+        }
+    };
+
 
     private long lastClickTime = 0;
 
     private MessageIntent intentReport = new MessageIntent("CHAT_REPORT", Datagram.IDENTIFIER_REPORT, changedHandler, 0, 1);
     private MessageIntent intentMessage = new MessageIntent("CHAR_MESSAGE_DETAIL", Datagram.IDENTIFIER_MESSAGE_DETAIL, changedHandler, 0, 1);
+    private MessageIntent intentSessionUpdate = new MessageIntent("CHAR_SESSION_UPDATE", Datagram.IDENTIFIER_UPDATE_DETAIL, sessionHandler, 0, 1);
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,17 +122,12 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
 
         MessageLoop.addIntent(intentReport);
         MessageLoop.addIntent(intentMessage);
+        MessageLoop.addIntent(intentSessionUpdate);
 
         markRead();
 
         setTitle("与 " + dstUser.getName() + " 的" + processor.getSessionProperties().getChatTitleEndWith());
-
-        if(sessionEntity.isDisabled()){
-            Button btnSend=findViewById(R.id.btn_send);
-            btnSend.setVisibility(View.GONE);
-            et_msg.setVisibility(View.GONE);
-            setTitle(getTitle()+"（会话已关闭）");
-        }
+        reloadSession();
     }
 
     @Override
@@ -223,6 +228,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         super.onDestroy();
         MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT, intentReport.getId(), 1);
         MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL, intentMessage.getId(), 1);
+        MessageLoop.removeIntent(Datagram.IDENTIFIER_UPDATE_DETAIL, intentSessionUpdate.getId(), 1);
     }
 
     @Override
@@ -256,6 +262,22 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         lv_msg.setAdapter(new ChatMsgAdapter(messageEntities, this, dstUid, getIntent(), sessionEntity));
         lv_msg.setSelection(lv_msg.getCount() - 1);
         lv_msg.setOnItemClickListener(this);
+    }
+
+    private void reloadSession(){
+        sessionEntity=sessionDao.getSessionById(sessionEntity.getSessionId());
+        if(sessionEntity==null){
+            Toast.makeText(this,"不知为何找不到此会话了（手动滑稽）",Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        if(sessionEntity.isDisabled()){
+            Button btnSend=findViewById(R.id.btn_send);
+            btnSend.setVisibility(View.GONE);
+            et_msg.setVisibility(View.GONE);
+            setTitle(getTitle()+"（会话已关闭）");
+        }
     }
 
     public void send(View v) {
@@ -358,6 +380,23 @@ class ChatMsgAdapter extends BaseAdapter {
             return R.mipmap.jntm3;
         if (text.equals("鸡你太美4"))
             return R.mipmap.jntm4;
+        if (text.equals("鸡你太美5"))
+            return R.mipmap.jntm5;
+        if (text.equals("鸡你太美6"))
+            return R.mipmap.jntm6;
+        if (text.equals("鸡你太美7"))
+            return R.mipmap.jntm7;
+        if (text.equals("鸡你太美8"))
+            return R.mipmap.jntm8;
+        if (text.equals("鸡你太美9"))
+            return R.mipmap.jntm9;
+        if (text.equals("鸡你太美10"))
+            return R.mipmap.jntm10;
+        if (text.equals("鸡你太美11"))
+            return R.mipmap.jntm11;
+        if (text.equals("鸡你太美12"))
+            return R.mipmap.jntm12;
+
 
         return -1;
     }

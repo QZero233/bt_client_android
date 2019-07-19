@@ -106,13 +106,12 @@ public class ProcessorHandlers {
                 if(sessionDao.getSessionById(messageEntityGot.getSessionId())==null){
                     Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",messageEntityGot.getSessionId()).build());
                     MessageLoopResource.sendDatagram(datagramUser);
-                }
+                }else
+                    notificationUtils.sendMessageNotification();
             }
 
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,new ParamBuilder().putParam("msg_id",messageEntityGot.getMsgId()).build());
             MessageLoopResource.sendDatagram(deleteDatagram);
-
-            notificationUtils.sendMessageNotification();
         }
     };
 
