@@ -2,10 +2,8 @@ package com.nasa.bt.loop;
 
 import android.app.Service;
 import android.content.Intent;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.Message;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
@@ -36,22 +34,6 @@ public class MessageLoopService extends Service {
 
     public static MessageLoopService instance = null;
 
-    private Handler reconnectHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            reConnect();
-        }
-    };
-
-    private Handler disconnectHandler=new Handler(){
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            disconnect();
-        }
-    };
-
     public ClientThread connection;
 
 
@@ -79,22 +61,23 @@ public class MessageLoopService extends Service {
             application.setThreadRunningStatus(true);
         }
 
-        MessageIntent reconnectIntent = new MessageIntent("SERVICE_RECONNECT", MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, reconnectHandler, 0, 0);
-        MessageIntent disconnectIntent=new MessageIntent("SERVICE_DISCONNECT", MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,disconnectHandler,0,0);
+        MessageLoopUtils.registerListenerDefault("SERVICE_RECONNECT", SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT, new DatagramListener() {
+            @Override
+            public void onDatagramReach(Datagram datagram) {
+                connection.reconnect();
+            }
+        });
 
-        MessageLoop.addIntent(reconnectIntent);
-        MessageLoop.addIntent(disconnectIntent);
+        MessageLoopUtils.registerListenerDefault("SERVICE_DISCONNECT", SendDatagramUtils.INBOX_IDENTIFIER_DISCONNECTED, new DatagramListener() {
+            @Override
+            public void onDatagramReach(Datagram datagram) {
+                connection.stopConnection();
+            }
+        });
 
         return super.onStartCommand(intent, flags, startId);
     }
 
-    private void reConnect() {
-        connection.reconnect();
-    }
-
-    private void disconnect(){
-        connection.stopConnection();
-    }
 
     public void rebind(){
         handlers=new ProcessorHandlers(this);
@@ -110,6 +93,7 @@ public class MessageLoopService extends Service {
     public boolean sendDatagram(Datagram datagram){
         return connection.sendDatagram(datagram);
     }
+
 }
 
 
@@ -119,6 +103,8 @@ class ClientThread extends Thread {
     private Socket socket;
     private SocketIOHelper helper;
     private boolean running=true;
+
+    private int tryTime=0;
 
     private BugTelegramApplication application;
 
@@ -143,6 +129,7 @@ class ClientThread extends Thread {
 
     public synchronized void reconnect(){
         log.debug("收到手动重连通知，开始手动重连");
+        tryTime=0;
         try {
             socket.close();
         }catch (Exception e){
@@ -159,9 +146,17 @@ class ClientThread extends Thread {
 
         while(running){
             doProcess();
-            log.info("因未知原因断线，5秒后将尝试重连");
+
+            tryTime++;
+            if(tryTime>=5)
+                tryTime=5;
+
+            log.info("因未知原因断线，"+tryTime+"秒后将尝试重连");
+
             try {
-                Thread.sleep(5000);
+                for(int i=0;i<tryTime;i++){
+                    Thread.sleep(1000);
+                }
             }catch (Exception e){
 
             }
@@ -205,6 +200,7 @@ class ClientThread extends Thread {
             }
 
             log.info("身份验证数据包已发送，开始循环监听");
+            tryTime=0;
 
             while (true) {
                 //开始循环监听
@@ -212,7 +208,7 @@ class ClientThread extends Thread {
                 if (datagram == null)
                     break;
 
-                MessageLoop.processDatagram(datagram);
+                MessageLoopUtils.receivedDatagram(datagram);
             }
 
         } catch (Exception e) {

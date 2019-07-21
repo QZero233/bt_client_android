@@ -7,7 +7,7 @@ import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.entity.UpdateEntity;
 import com.nasa.bt.log.AppLogConfigurator;
-import com.nasa.bt.loop.MessageLoopResource;
+import com.nasa.bt.loop.SendDatagramUtils;
 
 import org.apache.log4j.Logger;
 
@@ -21,7 +21,7 @@ public class UpdateProcessor {
             log.debug("会话添加，收到更新");
             String newSessionId=updateEntity.getMore();
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",newSessionId).build());
-            MessageLoopResource.sendDatagram(datagram);
+            SendDatagramUtils.sendDatagram(datagram);
             return true;
         }else if(type==UpdateEntity.TYPE_SESSION_DELETE){
             log.debug("会话被删除，收到更新");
@@ -32,7 +32,7 @@ public class UpdateProcessor {
             log.debug("会话被更新，收到更新");
             String sessionId=updateEntity.getMore();
             Datagram datagram=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",sessionId).build());
-            MessageLoopResource.sendDatagram(datagram);
+            SendDatagramUtils.sendDatagram(datagram);
             return true;
         }
 

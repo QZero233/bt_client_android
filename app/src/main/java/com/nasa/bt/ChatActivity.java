@@ -35,10 +35,9 @@ import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.crypt.AESUtils;
-import com.nasa.bt.loop.MessageLoopResource;
-import com.nasa.bt.loop.MessageIntent;
-import com.nasa.bt.loop.MessageLoop;
+import com.nasa.bt.loop.DatagramListener;
+import com.nasa.bt.loop.MessageLoopUtils;
+import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.utils.LocalSettingsUtils;
@@ -62,30 +61,22 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
     private SessionProcessor processor;
     private String dstUid, srcUid;
 
-    private Handler changedHandler = new Handler() {
+    private DatagramListener changedListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
+        public void onDatagramReach(Datagram datagram) {
             reload();
             markRead();
         }
     };
 
-    private Handler sessionHandler=new Handler(){
+    private DatagramListener sessionListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
+        public void onDatagramReach(Datagram datagram) {
             reloadSession();
         }
     };
 
-
     private long lastClickTime = 0;
-
-    private MessageIntent intentReport = new MessageIntent("CHAT_REPORT", Datagram.IDENTIFIER_REPORT, changedHandler, 0, 1);
-    private MessageIntent intentMessage = new MessageIntent("CHAR_MESSAGE_DETAIL", Datagram.IDENTIFIER_MESSAGE_DETAIL, changedHandler, 0, 1);
-    private MessageIntent intentSessionUpdate = new MessageIntent("CHAR_SESSION_UPDATE", Datagram.IDENTIFIER_UPDATE_DETAIL, sessionHandler, 0, 1);
 
 
     @Override
@@ -119,11 +110,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         }
 
         reload();
-
-        MessageLoop.addIntent(intentReport);
-        MessageLoop.addIntent(intentMessage);
-        MessageLoop.addIntent(intentSessionUpdate);
-
+        registerListener();
         markRead();
 
         setTitle("与 " + dstUser.getName() + " 的" + processor.getSessionProperties().getChatTitleEndWith());
@@ -223,26 +210,34 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         builder.show();
     }
 
+    private void registerListener(){
+        MessageLoopUtils.registerListenerNormal("CHAT_REPORT",Datagram.IDENTIFIER_REPORT,changedListener);
+        MessageLoopUtils.registerListenerNormal("CHAR_MESSAGE_DETAIL",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
+        MessageLoopUtils.registerListenerNormal("CHAR_SESSION_UPDATE",Datagram.IDENTIFIER_UPDATE_DETAIL,sessionListener);
+    }
+
+    private void unregisterListener(){
+        MessageLoopUtils.unregisterListener("CHAT_REPORT");
+        MessageLoopUtils.unregisterListener("CHAR_MESSAGE_DETAIL");
+        MessageLoopUtils.unregisterListener("CHAR_SESSION_UPDATE");
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT, intentReport.getId(), 1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL, intentMessage.getId(), 1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_UPDATE_DETAIL, intentSessionUpdate.getId(), 1);
+        unregisterListener();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT, intentReport.getId(), 1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL, intentMessage.getId(), 1);
+        unregisterListener();
     }
 
     @Override
     protected void onRestart() {
         super.onRestart();
-        MessageLoop.addIntent(intentReport);
-        MessageLoop.addIntent(intentMessage);
+        registerListener();
         markRead();
     }
 
@@ -253,7 +248,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
             param.put("msg_id", messageEntity.getMsgId().getBytes());
             param.put("src_uid", dstUid.getBytes());
             Datagram datagram = new Datagram(Datagram.IDENTIFIER_MARK_READ, param);
-            MessageLoopResource.sendDatagram(datagram);
+            SendDatagramUtils.sendDatagram(datagram);
         }
     }
 
@@ -293,7 +288,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
 
         Datagram datagram = new Datagram(Datagram.IDENTIFIER_SEND_MESSAGE, new ParamBuilder().putParam("msg", JSON.toJSONString(messageEntity)).build());
         et_msg.setText("");
-        MessageLoopResource.sendDatagram(datagram);
+        SendDatagramUtils.sendDatagram(datagram);
         messageDao.addMessage(messageEntity);
         updateSessionInfo(messageEntity);
         reload();

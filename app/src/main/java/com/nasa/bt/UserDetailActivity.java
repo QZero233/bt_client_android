@@ -1,12 +1,10 @@
 package com.nasa.bt;
 
 import android.content.DialogInterface;
-import android.os.Handler;
-import android.os.Message;
+import android.os.Bundle;
 import android.support.design.widget.TextInputEditText;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -17,12 +15,13 @@ import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
+import com.nasa.bt.crypt.SHA256Utils;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.crypt.SHA256Utils;
-import com.nasa.bt.loop.MessageLoopResource;
-import com.nasa.bt.loop.MessageIntent;
-import com.nasa.bt.loop.MessageLoop;
+import com.nasa.bt.loop.ActionReportListener;
+import com.nasa.bt.loop.DatagramListener;
+import com.nasa.bt.loop.MessageLoopUtils;
+import com.nasa.bt.loop.SendDatagramUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,28 +31,21 @@ public class UserDetailActivity extends AppCompatActivity {
     private ProgressBar pb;
     private UserInfoEntity userInfoEntity;
     private TextView tv_name,tv_uid;
-    private Handler sessionReportHandler=new Handler(){
+
+
+    private ActionReportListener createSessionReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            Map<String,String> params=datagram.getParamsAsString();
-            ActionReport report= JSON.parseObject(params.get("action_report"),ActionReport.class);
-            if(report==null || !report.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_CREATE_SESSION))
-                return;
-
-            Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",report.getMore()).build());
-            MessageLoopResource.sendDatagram(datagramGet);
+        public void onActionReportReach(ActionReport actionReport) {
+            Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",actionReport.getMore()).build());
+            SendDatagramUtils.sendDatagram(datagramGet);
 
             Toast.makeText(UserDetailActivity.this,"创建成功，正在向服务器请求会话信息",Toast.LENGTH_SHORT).show();
         }
     };
-    private Handler sessionDetailHandler=new Handler(){
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
 
+    private DatagramListener sessionDetailListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
             Toast.makeText(UserDetailActivity.this,"会话创建成功",Toast.LENGTH_SHORT).show();
             finish();
         }
@@ -77,15 +69,22 @@ public class UserDetailActivity extends AppCompatActivity {
         tv_name.setText(userInfoEntity.getName());
         tv_uid.setText(userInfoEntity.getId());
 
-        MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_REPORT",Datagram.IDENTIFIER_REPORT,sessionReportHandler,0,1));
-        MessageLoop.addIntent(new MessageIntent("USER_DETAIL_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL,sessionDetailHandler,0,1));
+        MessageLoopUtils.registerActionReportListenerNormal("USER_DETAIL_SESSION_REPORT",Datagram.IDENTIFIER_CREATE_SESSION,createSessionReportListener);
+        MessageLoopUtils.registerListenerNormal("USER_DETAIL_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL,sessionDetailListener);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        MessageLoopUtils.unregisterListener("USER_DETAIL_SESSION_REPORT");
+        MessageLoopUtils.unregisterListener("USER_DETAIL_SESSION_DETAIL");
     }
 
     public void createNormalChatSession(View v){
         ParamBuilder paramBuilder=new ParamBuilder();
         paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_NORMAL)).putParam("uid_dst", userInfoEntity.getId()).putParam("params","");
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,paramBuilder.build());
-        MessageLoopResource.sendDatagram(datagram);
+        SendDatagramUtils.sendDatagram(datagram);
         pb.setVisibility(View.VISIBLE);
     }
 
@@ -123,7 +122,7 @@ public class UserDetailActivity extends AppCompatActivity {
                 ParamBuilder paramBuilder=new ParamBuilder();
                 paramBuilder.putParam("session_type",String.valueOf(SessionEntity.TYPE_SECRET_CHAT)).putParam("uid_dst", userInfoEntity.getId()).putParam("params",JSON.toJSONString(sessionParam));
                 Datagram datagram=new Datagram(Datagram.IDENTIFIER_CREATE_SESSION,paramBuilder.build());
-                MessageLoopResource.sendDatagram(datagram);
+                SendDatagramUtils.sendDatagram(datagram);
                 pb.setVisibility(View.VISIBLE);
             }
         });

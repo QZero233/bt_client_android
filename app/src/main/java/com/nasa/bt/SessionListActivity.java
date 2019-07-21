@@ -33,10 +33,11 @@ import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.crypt.KeyUtils;
-import com.nasa.bt.loop.MessageLoopResource;
-import com.nasa.bt.loop.MessageIntent;
-import com.nasa.bt.loop.MessageLoop;
+import com.nasa.bt.loop.ActionReportListener;
+import com.nasa.bt.loop.DatagramListener;
+import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.MessageLoopService;
+import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.session.JoinSessionCallback;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
@@ -52,25 +53,16 @@ import java.util.List;
 public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener {
 
 
-    private Handler changeHandler = new Handler() {
+    private DatagramListener changedListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
+        public void onDatagramReach(Datagram datagram) {
             refresh();
         }
     };
 
-    private Handler refreshHandler=new Handler(){
+    private ActionReportListener refreshReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            ActionReport actionReport= JSON.parseObject(datagram.getParamsAsString().get("action_report"),ActionReport.class);
-            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_REFRESH))
-                return;
-
+        public void onActionReportReach(ActionReport actionReport) {
             refresh();
             if (sl_main.isRefreshing()) {
                 sl_main.setRefreshing(false);
@@ -78,7 +70,6 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             }
         }
     };
-
 
     private ListView lv_sessions;
     private SwipeRefreshLayout sl_main;
@@ -92,11 +83,12 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_session_list);
 
-        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_MESSAGE", Datagram.IDENTIFIER_MESSAGE_DETAIL, changeHandler, 0, 1));
-        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_SESSION", Datagram.IDENTIFIER_SESSION_DETAIL, changeHandler, 0, 1));
-        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_USER_INFO", Datagram.IDENTIFIER_USER_INFO, changeHandler, 0, 1));
-        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_UPDATE", Datagram.IDENTIFIER_UPDATE_DETAIL, changeHandler, 0, 1));
-        MessageLoop.addIntent(new MessageIntent("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REPORT,refreshHandler,0,1));
+        MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,refreshReportListener);
+
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_SESSION",Datagram.IDENTIFIER_SESSION_DETAIL,changedListener);
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_USER_INFO",Datagram.IDENTIFIER_USER_INFO,changedListener);
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPDATE",Datagram.IDENTIFIER_UPDATE_DETAIL,changedListener);
 
         sessionDao=new SessionDao(this);
 
@@ -120,11 +112,11 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     protected void onDestroy() {
         super.onDestroy();
 
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_MESSAGE_DETAIL,"SESSION_LIST_MESSAGE",1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_SESSION_DETAIL,"SESSION_LIST_SESSION",1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_USER_INFO,"SESSION_LIST_USER_INFO",1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"SESSION_LIST_REFRESH_REPORT",1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_UPDATE_DETAIL,"SESSION_LIST_UPDATE",1);
+        MessageLoopUtils.unregisterListener("SESSION_LIST_REFRESH_REPORT");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_MESSAGE");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_SESSION");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_USER_INFO");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_UPDATE");
     }
 
     private void refresh() {
@@ -187,8 +179,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                     LocalSettingsUtils.save(SessionListActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
                     Toast.makeText(SessionListActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
 
-                    Datagram datagram = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, null);
-                    MessageLoop.processDatagram(datagram);
+                    MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
 
                     finish();
                 }
@@ -200,7 +191,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                 utils.genKeySet();
                 utils.saveKeySet();
 
-                MessageLoopResource.sendDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT,null));
+                MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
 
                 Toast.makeText(this, "重置成功", Toast.LENGTH_SHORT).show();
                 finish();
@@ -213,8 +204,9 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_NAME, "");
             LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_CODE_HASH, "");
             LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_CODE_LAST, "");
-            Datagram datagramDisconnect = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED, null);
-            MessageLoop.processDatagram(datagramDisconnect);
+
+            MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_DISCONNECTED);
+
             Toast.makeText(this, "退出成功", Toast.LENGTH_SHORT).show();
             finish();
         }
@@ -224,7 +216,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     @Override
     public void onRefresh() {
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
-        MessageLoopResource.sendDatagram(datagram);
+        SendDatagramUtils.sendDatagram(datagram);
     }
 
     @Override

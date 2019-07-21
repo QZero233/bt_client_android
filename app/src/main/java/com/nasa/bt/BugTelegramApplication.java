@@ -3,6 +3,7 @@ package com.nasa.bt;
 import android.app.Application;
 
 import com.nasa.bt.log.AppLogConfigurator;
+import com.nasa.bt.loop.MessageLoopUtils;
 
 public class BugTelegramApplication extends Application {
 
@@ -20,6 +21,7 @@ public class BugTelegramApplication extends Application {
     public void onCreate() {
         super.onCreate();
         AppLogConfigurator.configure();
+        MessageLoopUtils.initContext(this);
     }
 
 }

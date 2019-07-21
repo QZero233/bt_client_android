@@ -1,8 +1,6 @@
 package com.nasa.bt.loop;
 
 import android.content.Context;
-import android.os.Handler;
-import android.os.Message;
 
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
@@ -36,17 +34,16 @@ public class ProcessorHandlers {
     private SessionDao sessionDao;
     private NotificationUtils notificationUtils;
 
+    private static final int ID_LENGTH=Datagram.ID_LENGTH;
+
     /**
      * 已经向服务器申请具体内容的id
      */
     private Map<String,Boolean> idSent =new HashMap<>();
 
-    private Handler defaultUserInfoProcessor=new Handler(){
+    private DatagramListener defaultUserInfoListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            Datagram datagram= (Datagram) msg.obj;
-
+        public void onDatagramReach(Datagram datagram) {
             Map<String,String> params=datagram.getParamsAsString();
 
             if(params.get("exist").equals("0"))
@@ -63,33 +60,25 @@ public class ProcessorHandlers {
         }
     };
 
-    private Handler defaultMessageIndexProcessor=new Handler(){
+    private DatagramListener defaultMessageIndexListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-
+        public void onDatagramReach(Datagram datagram) {
             String index=datagram.getParamsAsString().get("index");
-            for(int i=0;i<index.length()/36;i++){
-                String id=index.substring(i*36,(i+1)*36);
+            for(int i=0;i<index.length()/ID_LENGTH;i++){
+                String id=index.substring(i*ID_LENGTH,(i+1)*ID_LENGTH);
                 if(!checkSent(id))
                     continue;
 
                 Datagram getDatagram=new Datagram(Datagram.IDENTIFIER_MESSAGE_DETAIL,new ParamBuilder().putParam("msg_id",id).build());
-                MessageLoopResource.sendDatagram(getDatagram);
+                SendDatagramUtils.sendDatagram(getDatagram);
                 addSent(id);
             }
-
         }
     };
 
-    private Handler defaultMessageProcessor=new Handler(){
+    private DatagramListener defaultMessageListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            Datagram datagram= (Datagram) msg.obj;
-
+        public void onDatagramReach(Datagram datagram) {
             Map<String,String> params=datagram.getParamsAsString();
             MessageEntity messageEntityGot = JSON.parseObject(params.get("msg"), MessageEntity.class);
             messageEntityGot.setStatus(MessageEntity.STATUS_UNREAD);
@@ -105,29 +94,19 @@ public class ProcessorHandlers {
 
                 if(sessionDao.getSessionById(messageEntityGot.getSessionId())==null){
                     Datagram datagramUser=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",messageEntityGot.getSessionId()).build());
-                    MessageLoopResource.sendDatagram(datagramUser);
+                    SendDatagramUtils.sendDatagram(datagramUser);
                 }else
                     notificationUtils.sendMessageNotification();
             }
 
             Datagram deleteDatagram=new Datagram(Datagram.IDENTIFIER_DELETE_MESSAGE,new ParamBuilder().putParam("msg_id",messageEntityGot.getMsgId()).build());
-            MessageLoopResource.sendDatagram(deleteDatagram);
+            SendDatagramUtils.sendDatagram(deleteDatagram);
         }
     };
 
-
-    private Handler defaultSendMessageReportHandler =new Handler(){
+    private ActionReportListener defaultSendMessageReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            Map<String,String> params=datagram.getParamsAsString();
-            ActionReport actionReport=JSON.parseObject(params.get("action_report"),ActionReport.class);
-
-            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_SEND_MESSAGE))
-                return;
-
+        public void onActionReportReach(ActionReport actionReport) {
             int status;
             if(actionReport.getActionStatus().equals("0"))
                 status= MessageEntity.STATUS_FAILED;
@@ -141,18 +120,9 @@ public class ProcessorHandlers {
         }
     };
 
-    private Handler defaultAuthReportHandler=new Handler(){
+    private ActionReportListener defaultAuthReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            Map<String,String> params=datagram.getParamsAsString();
-            ActionReport actionReport=JSON.parseObject(params.get("action_report"),ActionReport.class);
-
-            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_SIGN_IN))
-                return;
-
+        public void onActionReportReach(ActionReport actionReport) {
             if(actionReport.getActionStatus().equals("0")){
                 //验证失败
                 log.info("身份验证失败");
@@ -164,18 +134,14 @@ public class ProcessorHandlers {
                 log.info("获得的uid "+actionReport.getMore());
                 LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,actionReport.getMore());
                 //处理未发出的数据包
-                MessageLoopResource.sendUnsent();
+                SendDatagramUtils.sendUnsent();
             }
         }
     };
 
-
-    private Handler defaultSessionInfoHandler=new Handler(){
+    private DatagramListener defaultSessionInfoListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
+        public void onDatagramReach(Datagram datagram) {
             Map<String,String> params=datagram.getParamsAsString();
             String sessionStr=params.get("session");
             SessionEntity sessionEntity =JSON.parseObject(sessionStr, SessionEntity.class);
@@ -200,75 +166,56 @@ public class ProcessorHandlers {
             String dstUid= sessionEntity.getIdOfOther(myUid);
             if(userInfoDao.getUserInfoById(dstUid)==null){
                 Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_USER_INFO,new ParamBuilder().putParam("uid",dstUid).build());
-                MessageLoopResource.sendDatagram(datagramGet);
+                SendDatagramUtils.sendDatagram(datagramGet);
             }
-
         }
     };
 
-    private Handler defaultSessionIndexHandler=new Handler(){
+    private DatagramListener defaultSessionIndexListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
+        public void onDatagramReach(Datagram datagram) {
             Map<String,String> params=datagram.getParamsAsString();
             String sessionsId=params.get("session_id");
-            for(int i=0;i<sessionsId.length()/36;i++){
-                String subId=sessionsId.substring(i*36,(i+1)*36);
+            for(int i=0;i<sessionsId.length()/ID_LENGTH;i++){
+                String subId=sessionsId.substring(i*ID_LENGTH,(i+1)*ID_LENGTH);
                 if(!checkSent(subId))
                     continue;
 
                 Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",subId).build());
-                MessageLoopResource.sendDatagram(datagramGet);
+                SendDatagramUtils.sendDatagram(datagramGet);
                 addSent(subId);
             }
-
         }
     };
 
-    private Handler defaultMarkReadReportHandler=new Handler(){
+    private ActionReportListener defaultMarkReadReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            Map<String,String> params=datagram.getParamsAsString();
-            ActionReport report=JSON.parseObject(params.get("action_report"),ActionReport.class);
-            if(report==null || !report.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_MARK_READ))
-                return;
-
-            String msgId=report.getReplyId();
+        public void onActionReportReach(ActionReport actionReport) {
+            String msgId=actionReport.getReplyId();
             messageDao.markReadById(msgId);
         }
     };
 
-    private Handler defaultUpdateIndexHandler=new Handler(){
+    private DatagramListener defaultUpdateIndexListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
+        public void onDatagramReach(Datagram datagram) {
             Map<String,String> params=datagram.getParamsAsString();
             String indexes=params.get("update_id");
-            for(int i=0;i<indexes.length()/36;i++){
-                String subId=indexes.substring(i*36,(i+1)*36);
+            for(int i=0;i<indexes.length()/ID_LENGTH;i++){
+                String subId=indexes.substring(i*ID_LENGTH,(i+1)*ID_LENGTH);
                 if(!checkSent(subId))
                     continue;
 
                 Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_UPDATE_DETAIL,new ParamBuilder().putParam("update_id",subId).build());
-                MessageLoopResource.sendDatagram(datagramGet);
+                SendDatagramUtils.sendDatagram(datagramGet);
                 addSent(subId);
             }
         }
     };
 
-    private Handler defaultUpdateDetailHandler=new Handler(){
+    private DatagramListener defaultUpdateDetailListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
+        public void onDatagramReach(Datagram datagram) {
             Map<String,String> params=datagram.getParamsAsString();
             UpdateEntity updateEntity=JSON.parseObject(params.get("update"),UpdateEntity.class);
 
@@ -280,21 +227,10 @@ public class ProcessorHandlers {
             log.debug("收到更新 "+updateEntity);
             if(UpdateProcessor.processUpdate(updateEntity,context)){
                 Datagram datagramDelete=new Datagram(Datagram.IDENTIFIER_DELETE_UPDATE,new ParamBuilder().putParam("update_id",updateEntity.getUpdateId()).build());
-                MessageLoopResource.sendDatagram(datagramDelete);
+                SendDatagramUtils.sendDatagram(datagramDelete);
             }
         }
     };
-
-    private MessageIntent userInfoIntent=new MessageIntent("DEFAULT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,defaultUserInfoProcessor,0,0);
-    private MessageIntent messageIntent=new MessageIntent("DEFAULT_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,defaultMessageProcessor,0,0);
-    private MessageIntent messageIndexIntent=new MessageIntent("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_MESSAGE_INDEX,defaultMessageIndexProcessor,0,0);
-    private MessageIntent messageStatusIntent=new MessageIntent("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_REPORT, defaultSendMessageReportHandler,0,0);
-    private MessageIntent authReportIntent=new MessageIntent("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_REPORT, defaultAuthReportHandler,0,0);
-    private MessageIntent markReadReportIntent=new MessageIntent("DEFAULT_MARK_READ_REPORT",Datagram.IDENTIFIER_REPORT, defaultMarkReadReportHandler,0,0);
-    private MessageIntent sessionIndexIntent=new MessageIntent("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_SESSIONS_INDEX, defaultSessionIndexHandler,0,0);
-    private MessageIntent sessionDetailIntent=new MessageIntent("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL, defaultSessionInfoHandler,0,0);
-    private MessageIntent updateIndexIntent=new MessageIntent("DEFAULT_UPDATE_INDEX",Datagram.IDENTIFIER_UPDATE_INDEX,defaultUpdateIndexHandler,0,0);
-    private MessageIntent updateDetailIntent=new MessageIntent("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailHandler,0,0);
 
     public ProcessorHandlers(Context context) {
         this.context = context;
@@ -306,16 +242,17 @@ public class ProcessorHandlers {
     }
 
     public void addDefaultIntents(){
-        MessageLoop.addIntent(userInfoIntent);
-        MessageLoop.addIntent(messageIntent);
-        MessageLoop.addIntent(messageIndexIntent);
-        MessageLoop.addIntent(messageStatusIntent);
-        MessageLoop.addIntent(authReportIntent);
-        MessageLoop.addIntent(markReadReportIntent);
-        MessageLoop.addIntent(sessionDetailIntent);
-        MessageLoop.addIntent(sessionIndexIntent);
-        MessageLoop.addIntent(updateIndexIntent);
-        MessageLoop.addIntent(updateDetailIntent);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,defaultUserInfoListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,defaultMessageListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_MESSAGE_INDEX,defaultMessageIndexListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_SESSIONS_INDEX,defaultSessionIndexListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL,defaultSessionInfoListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_INDEX",Datagram.IDENTIFIER_UPDATE_INDEX,defaultUpdateIndexListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailListener);
+
+        MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_SEND_MESSAGE,defaultSendMessageReportListener);
+        MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,defaultAuthReportListener);
+        MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_MARK_READ_REPORT",Datagram.IDENTIFIER_MARK_READ,defaultMarkReadReportListener);
     }
 
     private boolean checkSent(String msgId){

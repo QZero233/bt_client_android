@@ -1,5 +1,6 @@
 package com.nasa.bt.cls;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -8,7 +9,7 @@ import java.util.Set;
  * 数据包类
  * @author QZero
  */
-public class Datagram {
+public class Datagram implements Serializable {
 
     public static final String IDENTIFIER_SIGN_IN="SIIN";
     public static final String IDENTIFIER_REPORT="REPO";
@@ -35,7 +36,9 @@ public class Datagram {
     public static final String IDENTIFIER_UPDATE_INDEX="UPID";
     public static final String IDENTIFIER_UPDATE_DETAIL="UPDE";
     public static final String IDENTIFIER_DELETE_UPDATE="DEUP";
-    
+
+    public static final int ID_LENGTH=36;
+
     /**
      * 当前协议版本
      */

@@ -3,11 +3,9 @@ package com.nasa.bt;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.os.Handler;
-import android.os.Message;
+import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,9 +20,9 @@ import android.widget.Toast;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.loop.MessageLoopResource;
-import com.nasa.bt.loop.MessageIntent;
-import com.nasa.bt.loop.MessageLoop;
+import com.nasa.bt.loop.DatagramListener;
+import com.nasa.bt.loop.MessageLoopUtils;
+import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
 import java.util.ArrayList;
@@ -40,14 +38,10 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
     private List<UserInfoEntity> userInfoEntityList;
     private ProgressBar pb;
 
-    private Handler userInfoHandler=new Handler(){
+    private DatagramListener userInfoListener=new DatagramListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
+        public void onDatagramReach(Datagram datagram) {
             pb.setVisibility(View.GONE);
-
-            Datagram datagram= (Datagram) msg.obj;
             Map<String,String> params=datagram.getParamsAsString();
 
             if(params.get("exist").equalsIgnoreCase("0")){
@@ -75,14 +69,13 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         lv_contact.setOnItemLongClickListener(this);
         reload();
 
-        MessageIntent intent=new MessageIntent("CONTACT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,userInfoHandler,0,1);
-        MessageLoop.addIntent(intent);
+        MessageLoopUtils.registerListenerNormal("CONTACT_USER_INFO",Datagram.IDENTIFIER_USER_INFO,userInfoListener);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_USER_INFO,"CONTACT_USER_INFO",1);
+        MessageLoopUtils.unregisterListener("CONTACT_USER_INFO");
     }
 
     @Override
@@ -100,7 +93,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         Map<String,byte[]> params=new HashMap<>();
         params.put("name",s.getBytes());
         Datagram datagramQuery=new Datagram(Datagram.IDENTIFIER_USER_INFO,params);
-        MessageLoopResource.sendDatagram(datagramQuery);
+        SendDatagramUtils.sendDatagram(datagramQuery);
         pb.setVisibility(View.VISIBLE);
         return true;
     }

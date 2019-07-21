@@ -1,69 +1,43 @@
 package com.nasa.bt;
 
-import android.app.PendingIntent;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.os.Handler;
-import android.os.Message;
+import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.data.LocalDatabaseHelper;
-import com.nasa.bt.loop.MessageLoopResource;
-import com.nasa.bt.loop.MessageIntent;
-import com.nasa.bt.loop.MessageLoop;
+import com.nasa.bt.loop.ActionReportListener;
 import com.nasa.bt.loop.MessageLoopService;
+import com.nasa.bt.loop.MessageLoopUtils;
+import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
-import com.nasa.bt.utils.NotificationUtils;
-
-import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Handler mainAuthReportHandler=new Handler(){
+    private ActionReportListener mainAuthReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            Map<String,String> params=datagram.getParamsAsString();
-            ActionReport actionReport= JSON.parseObject(params.get("action_report"),ActionReport.class);
-
-            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_SIGN_IN))
-                return;
-
+        public void onActionReportReach(ActionReport actionReport) {
             if(actionReport.getActionStatus().equals("0")){
                 //验证失败，断线，跳转
-                MessageLoop.processDatagram(new Datagram(MessageLoopResource.INBOX_IDENTIFIER_DISCONNECTED,null));
+                MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_DISCONNECTED);
                 startActivity(new Intent(MainActivity.this,AuthInfoActivity.class));
                 Toast.makeText(MainActivity.this,"身份验证失败，请输入身份验证信息",Toast.LENGTH_SHORT).show();
-            }else{
-                pullUpdate();
             }
-
         }
     };
 
-    private Handler mainRefreshReportHandler=new Handler(){
+    private ActionReportListener mainRefreshReportListener=new ActionReportListener() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
-            Datagram datagram= (Datagram) msg.obj;
-            ActionReport actionReport=JSON.parseObject(datagram.getParamsAsString().get("action_report"),ActionReport.class);
-            if(!actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_REFRESH))
-                return;
-
+        public void onActionReportReach(ActionReport actionReport) {
             onRefreshOver();
         }
     };
@@ -98,10 +72,8 @@ public class MainActivity extends AppCompatActivity {
         setTitle("正在连接服务器.......");
         startService(new Intent(this, MessageLoopService.class));
 
-        MessageIntent messageIntentAuth=new MessageIntent("MAIN_AUTH_REPORT",Datagram.IDENTIFIER_REPORT,mainAuthReportHandler,0,1);
-        MessageIntent messageIntentRefresh=new MessageIntent("MAIN_REFRESH_REPORT",Datagram.IDENTIFIER_REPORT,mainRefreshReportHandler,0,1);
-        MessageLoop.addIntent(messageIntentAuth);
-        MessageLoop.addIntent(messageIntentRefresh);
+        MessageLoopUtils.registerActionReportListenerNormal("MAIN_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,mainRefreshReportListener);
+        MessageLoopUtils.registerActionReportListenerNormal("MAIN_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,mainAuthReportListener);
 
         pullUpdate();
     }
@@ -111,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
         setTitle("正在更新信息......");
 
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
-        MessageLoopResource.sendDatagram(datagram);
+        SendDatagramUtils.sendDatagram(datagram);
     }
 
     private void onRefreshOver(){
@@ -148,8 +120,7 @@ public class MainActivity extends AppCompatActivity {
                     LocalSettingsUtils.save(MainActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
                     Toast.makeText(MainActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
 
-                    Datagram datagram = new Datagram(MessageLoopResource.INBOX_IDENTIFIER_RECONNECT, null);
-                    MessageLoop.processDatagram(datagram);
+                    MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
 
                     finish();
                 }
@@ -163,7 +134,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"MAIN_AUTH_REPORT",1);
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"MAIN_REFRESH_REPORT",1);
+
+        MessageLoopUtils.unregisterListener("MAIN_REFRESH_REPORT");
+        MessageLoopUtils.unregisterListener("MAIN_AUTH_REPORT");
     }
 }

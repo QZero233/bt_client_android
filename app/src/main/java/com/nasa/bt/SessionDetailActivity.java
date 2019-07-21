@@ -23,9 +23,9 @@ import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.loop.MessageIntent;
-import com.nasa.bt.loop.MessageLoop;
-import com.nasa.bt.loop.MessageLoopResource;
+import com.nasa.bt.loop.ActionReportListener;
+import com.nasa.bt.loop.MessageLoopUtils;
+import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.session.JoinSessionCallback;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
@@ -42,31 +42,31 @@ public class SessionDetailActivity extends AppCompatActivity {
     private TextView tv_name,tv_type,tv_remarks;
     private ProgressBar pb;
 
-    private Handler reportHandler=new Handler(){
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
 
-            Datagram datagram= (Datagram) msg.obj;
-            ActionReport actionReport= JSON.parseObject(datagram.getParamsAsString().get("action_report"),ActionReport.class);
-            if(actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_DELETE_SESSION)) {
-                pb.setVisibility(View.GONE);
-                if (actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)) {
-                    Toast.makeText(SessionDetailActivity.this, "关闭成功", Toast.LENGTH_SHORT).show();
-                    sessionDao.setSessionDisabled(sessionEntity.getSessionId());
-                    finish();
-                } else {
-                    Toast.makeText(SessionDetailActivity.this, "关闭失败", Toast.LENGTH_SHORT).show();
-                }
-            }else if(actionReport.getActionIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_UPDATE_SESSION)){
-                pb.setVisibility(View.GONE);
-                if (actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)) {
-                    Toast.makeText(SessionDetailActivity.this, "更改成功", Toast.LENGTH_SHORT).show();
-                    sessionDao.addOrUpdateSession(sessionEntity);
-                    tv_remarks.setText(sessionEntity.getSpecifiedParam("remarks"));
-                } else {
-                    Toast.makeText(SessionDetailActivity.this, "更改失败", Toast.LENGTH_SHORT).show();
-                }
+    private ActionReportListener deleteActionReportListener=new ActionReportListener() {
+        @Override
+        public void onActionReportReach(ActionReport actionReport) {
+            pb.setVisibility(View.GONE);
+            if (actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)) {
+                Toast.makeText(SessionDetailActivity.this, "关闭成功", Toast.LENGTH_SHORT).show();
+                sessionDao.setSessionDisabled(sessionEntity.getSessionId());
+                finish();
+            } else {
+                Toast.makeText(SessionDetailActivity.this, "关闭失败", Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
+
+    private ActionReportListener updateActionReportListener=new ActionReportListener() {
+        @Override
+        public void onActionReportReach(ActionReport actionReport) {
+            pb.setVisibility(View.GONE);
+            if (actionReport.getActionStatus().equalsIgnoreCase(ActionReport.STATUS_SUCCESS)) {
+                Toast.makeText(SessionDetailActivity.this, "更改成功", Toast.LENGTH_SHORT).show();
+                sessionDao.addOrUpdateSession(sessionEntity);
+                tv_remarks.setText(sessionEntity.getSpecifiedParam("remarks"));
+            } else {
+                Toast.makeText(SessionDetailActivity.this, "更改失败", Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -114,7 +114,8 @@ public class SessionDetailActivity extends AppCompatActivity {
         }
 
 
-        MessageLoop.addIntent(new MessageIntent("SESSION_DETAIL_DELETE_REPORT", Datagram.IDENTIFIER_REPORT,reportHandler,0,1));
+        MessageLoopUtils.registerActionReportListenerNormal("SESSION_DETAIL_DELETE_REPORT",Datagram.IDENTIFIER_DELETE_SESSION,deleteActionReportListener);
+        MessageLoopUtils.registerActionReportListenerNormal("SESSION_DETAIL_UPDATE_REPORT",Datagram.IDENTIFIER_UPDATE_SESSION,updateActionReportListener);
     }
 
     public void close(View v){
@@ -126,7 +127,7 @@ public class SessionDetailActivity extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Datagram datagram=new Datagram(Datagram.IDENTIFIER_DELETE_SESSION, new ParamBuilder().putParam("session_id",sessionEntity.getSessionId()).build());
-                MessageLoopResource.sendDatagram(datagram);
+                SendDatagramUtils.sendDatagram(datagram);
                 pb.setVisibility(View.VISIBLE);
             }
         });
@@ -200,7 +201,7 @@ public class SessionDetailActivity extends AppCompatActivity {
 
                 Datagram datagram=new Datagram(Datagram.IDENTIFIER_UPDATE_SESSION,new ParamBuilder().putParam("session_id",sessionEntity.getSessionId()).
                         putParam("params",sessionEntity.getParams()).build());
-                MessageLoopResource.sendDatagram(datagram);
+                SendDatagramUtils.sendDatagram(datagram);
                 Toast.makeText(SessionDetailActivity.this,"正在更改......",Toast.LENGTH_SHORT).show();
                 pb.setVisibility(View.VISIBLE);
             }
@@ -212,7 +213,8 @@ public class SessionDetailActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        MessageLoop.removeIntent(Datagram.IDENTIFIER_REPORT,"SESSION_DETAIL_DELETE_REPORT",1);
+        MessageLoopUtils.unregisterListener("SESSION_DETAIL_DELETE_REPORT");
+        MessageLoopUtils.unregisterListener("SESSION_DETAIL_UPDATE_REPORT");
     }
 
     public void join(View v){

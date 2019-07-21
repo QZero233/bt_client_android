@@ -1,7 +1,5 @@
 package com.nasa.bt.loop;
 
-import android.util.Log;
-
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.log.AppLogConfigurator;
 
@@ -10,7 +8,7 @@ import org.apache.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MessageLoopResource {
+public class SendDatagramUtils {
 
     public static final String INBOX_IDENTIFIER_DISCONNECTED="IN_DISC";
     public static final String INBOX_IDENTIFIER_RECONNECT="IN_RECO";
@@ -32,10 +30,8 @@ public class MessageLoopResource {
                     if(!MessageLoopService.instance.sendDatagram(datagram)){
                         unsent.add(datagram);
                         log.debug("数据包发送失败 具体内容"+datagram);
-                        Datagram reconnect=new Datagram(INBOX_IDENTIFIER_RECONNECT,null);
-                        MessageLoop.processDatagram(reconnect);
+                        MessageLoopUtils.sendLocalDatagram(INBOX_IDENTIFIER_RECONNECT);
                     }
-
                 }
             }
         }.start();
@@ -52,7 +48,7 @@ public class MessageLoopResource {
                         return;
 
                     for(int i=0;i<unsent.size();i++){
-                        if(MessageLoopService.instance.sendDatagram(unsent.get(i)))
+                        if(!MessageLoopService.instance.sendDatagram(unsent.get(i)))
                             unsent.remove(i);
                     }
 
