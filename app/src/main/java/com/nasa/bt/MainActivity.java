@@ -13,7 +13,6 @@ import android.widget.Toast;
 
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.loop.ActionReportListener;
 import com.nasa.bt.loop.MessageLoopService;
@@ -67,7 +66,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         LocalDatabaseHelper.reset(this);
-        KeyUtils.initContext(this);
 
         setTitle("正在连接服务器.......");
         startService(new Intent(this, MessageLoopService.class));

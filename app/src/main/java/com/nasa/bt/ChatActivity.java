@@ -5,8 +5,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
@@ -16,6 +14,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -40,10 +39,12 @@ import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
+import com.nasa.bt.utils.ImageUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,8 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
     private SessionEntity sessionEntity;
     private SessionProcessor processor;
     private String dstUid, srcUid;
+
+
 
     private DatagramListener changedListener=new DatagramListener() {
         @Override
@@ -179,17 +182,39 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
     private void showImageDialog(){
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
 
-        View v=View.inflate(this,R.layout.view_images,null);
-        final Spinner spinner=v.findViewById(R.id.sp);
+        View v=View.inflate(this,R.layout.view_show_images,null);
+        final Spinner spinnerSeries=v.findViewById(R.id.sp_series);
+        final Spinner spinnerDetail=v.findViewById(R.id.sp_detail);
         final ImageView iv=v.findViewById(R.id.iv);
 
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        Object[] keys= ImageUtils.images.keySet().toArray();
+        ArrayAdapter arrayAdapter=new ArrayAdapter(this,R.layout.item_image_sp,keys);
+        spinnerSeries.setAdapter(arrayAdapter);
+
+        spinnerSeries.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
-                int img=ChatMsgAdapter.textToImage(spinner.getSelectedItem().toString());
-                if(img!=-1){
-                    iv.setImageResource(img);
-                }
+                List<String> detail=ImageUtils.images.get(spinnerSeries.getSelectedItem().toString());
+                if(detail==null)
+                    return;
+
+                ArrayAdapter arrayAdapter=new ArrayAdapter(ChatActivity.this,R.layout.item_image_sp,detail);
+                spinnerDetail.setAdapter(arrayAdapter);
+                spinnerDetail.setSelection(0);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
+
+        spinnerDetail.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                int image=ImageUtils.textToImage(spinnerDetail.getSelectedItem().toString());
+                if(image!=-1)
+                    iv.setImageResource(image);
             }
 
             @Override
@@ -203,7 +228,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         builder.setPositiveButton("选择", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                et_msg.setText(spinner.getSelectedItem().toString());
+                et_msg.setText(spinnerDetail.getSelectedItem().toString());
             }
         });
 
@@ -350,52 +375,6 @@ class ChatMsgAdapter extends BaseAdapter {
         return 0;
     }
 
-    public static int textToImage(String text) {
-        if (TextUtils.isEmpty(text))
-            return -1;
-        if (text.equals("手动滑稽"))
-            return R.mipmap.sdhj;
-        if (text.equals("党员滑稽"))
-            return R.mipmap.dyhj;
-        if (text.equals("党旗"))
-            return R.mipmap.cpc;
-        if (text.equals("国旗"))
-            return R.mipmap.prc;
-        if (text.equals("北社"))
-            return R.mipmap.nacp;
-        if (text.equals("问号滑稽"))
-            return R.mipmap.whhj;
-        if (text.equalsIgnoreCase("NASA"))
-            return R.mipmap.nasa;
-        if (text.equals("鸡你太美"))
-            return R.mipmap.jntm1;
-        if (text.equals("鸡你太美2"))
-            return R.mipmap.jntm2;
-        if (text.equals("鸡你太美3"))
-            return R.mipmap.jntm3;
-        if (text.equals("鸡你太美4"))
-            return R.mipmap.jntm4;
-        if (text.equals("鸡你太美5"))
-            return R.mipmap.jntm5;
-        if (text.equals("鸡你太美6"))
-            return R.mipmap.jntm6;
-        if (text.equals("鸡你太美7"))
-            return R.mipmap.jntm7;
-        if (text.equals("鸡你太美8"))
-            return R.mipmap.jntm8;
-        if (text.equals("鸡你太美9"))
-            return R.mipmap.jntm9;
-        if (text.equals("鸡你太美10"))
-            return R.mipmap.jntm10;
-        if (text.equals("鸡你太美11"))
-            return R.mipmap.jntm11;
-        if (text.equals("鸡你太美12"))
-            return R.mipmap.jntm12;
-
-
-        return -1;
-    }
-
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
 
@@ -425,7 +404,7 @@ class ChatMsgAdapter extends BaseAdapter {
         } else
             tv_status.setVisibility(View.GONE);
 
-        int image = textToImage(content);
+        int image = ImageUtils.textToImage(content);
         if (image == -1)
             tv_msg.setText(content);
         else {
