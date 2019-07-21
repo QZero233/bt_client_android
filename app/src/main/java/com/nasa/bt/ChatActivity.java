@@ -187,6 +187,9 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
         final Spinner spinnerDetail=v.findViewById(R.id.sp_detail);
         final ImageView iv=v.findViewById(R.id.iv);
 
+        iv.setMinimumWidth(100);
+        iv.setMinimumHeight(100);
+
         Object[] keys= ImageUtils.images.keySet().toArray();
         ArrayAdapter arrayAdapter=new ArrayAdapter(this,R.layout.item_image_sp,keys);
         spinnerSeries.setAdapter(arrayAdapter);
@@ -411,6 +414,9 @@ class ChatMsgAdapter extends BaseAdapter {
             tv_msg.setVisibility(View.GONE);
             iv.setVisibility(View.VISIBLE);
             iv.setImageResource(image);
+
+            iv.setMinimumWidth(100);
+            iv.setMinimumHeight(100);
         }
 
         switch (messageEntity.getStatus()) {
