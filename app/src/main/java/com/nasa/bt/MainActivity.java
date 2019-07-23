@@ -2,7 +2,10 @@ package com.nasa.bt;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
@@ -18,6 +21,8 @@ import com.nasa.bt.loop.ActionReportListener;
 import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.SendDatagramUtils;
+import com.nasa.bt.upgrade.UpgradeStatus;
+import com.nasa.bt.upgrade.UpgradeUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
 public class MainActivity extends AppCompatActivity {
@@ -48,12 +53,54 @@ public class MainActivity extends AppCompatActivity {
 
         /**
          * 操作顺序：
-         * 0.启动服务，连接服务器
+         * 0.检查更新，启动服务，连接服务器
          * 1.身份验证，不通过则断线，并跳转到身份信息设置窗口，在那个窗口里发消息重连
          * 2.向服务器申请刷新
          * 3.通过，启动SessionListActivity，finish
          */
+        checkUpgrade();
+    }
 
+
+    private void checkUpgrade(){
+        setTitle("正在检查更新");
+        final Handler handler=new Handler(){
+            @Override
+            public void handleMessage(Message msg) {
+                super.handleMessage(msg);
+                if(msg.what==1){
+                    //有更新
+                    final UpgradeStatus upgradeStatus= (UpgradeStatus) msg.obj;
+                    AlertDialog.Builder builder=new AlertDialog.Builder(MainActivity.this);
+                    builder.setTitle("发现新版本 "+upgradeStatus.getNewestName());
+                    builder.setMessage("更新日志：\n"+upgradeStatus.getUpgradeLog());
+                    builder.setNegativeButton("退出", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            finish();
+                        }
+                    });
+                    builder.setPositiveButton("更新", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            Intent intent=new Intent(Intent.ACTION_VIEW);
+                            Uri uri=Uri.parse(upgradeStatus.getDownloadUrl());
+                            intent.setData(uri);
+                            startActivity(intent);
+
+                            finish();
+                        }
+                    });
+                    builder.setCancelable(false);
+                    builder.show();
+                }else
+                    doMain();
+            }
+        };
+        UpgradeUtils.checkUpgrade(getApplicationContext(),handler);
+    }
+
+    private void doMain(){
         String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
         String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
         if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
@@ -134,4 +181,6 @@ public class MainActivity extends AppCompatActivity {
         MessageLoopUtils.unregisterListener("MAIN_REFRESH_REPORT");
         MessageLoopUtils.unregisterListener("MAIN_AUTH_REPORT");
     }
+
+
 }
