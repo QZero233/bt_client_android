@@ -54,8 +54,6 @@ public class MainActivity extends AppCompatActivity {
          * 3.通过，启动SessionListActivity，finish
          */
 
-        //TODO 在程序打开后清除所有通知
-
         String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
         String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
         if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
@@ -70,7 +68,6 @@ public class MainActivity extends AppCompatActivity {
         setTitle("正在连接服务器.......");
         startService(new Intent(this, MessageLoopService.class));
 
-        MessageLoopUtils.registerActionReportListenerNormal("MAIN_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,mainRefreshReportListener);
         MessageLoopUtils.registerActionReportListenerNormal("MAIN_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,mainAuthReportListener);
 
         pullUpdate();
@@ -80,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private void pullUpdate(){
         setTitle("正在更新信息......");
 
+        MessageLoopUtils.registerSpecifiedTimesActionReportListener("MAIN_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,1,mainRefreshReportListener);
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
         SendDatagramUtils.sendDatagram(datagram);
     }

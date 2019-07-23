@@ -96,7 +96,8 @@ public class MessageDao {
     public List<MessageEntity> getAllUnreadMessages(){
         try {
             QueryBuilder queryBuilder=dao.queryBuilder();
-            queryBuilder.setWhere(queryBuilder.where().eq("status",MessageEntity.STATUS_UNREAD));
+            queryBuilder.setWhere(queryBuilder.where().eq("status",MessageEntity.STATUS_UNREAD).and().
+                    ne("srcUid",LocalSettingsUtils.read(context,LocalSettingsUtils.FIELD_UID)));
             queryBuilder.orderBy("time",true);
             return queryBuilder.query();
         }catch (Exception e){

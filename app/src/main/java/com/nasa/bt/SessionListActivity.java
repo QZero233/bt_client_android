@@ -43,6 +43,7 @@ import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.session.SessionProperties;
 import com.nasa.bt.utils.LocalSettingsUtils;
+import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
 
 import java.util.List;
@@ -63,6 +64,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     private ActionReportListener refreshReportListener=new ActionReportListener() {
         @Override
         public void onActionReportReach(ActionReport actionReport) {
+            new NotificationUtils(SessionListActivity.this).cancelNotification();
             refresh();
             if (sl_main.isRefreshing()) {
                 sl_main.setRefreshing(false);
@@ -77,6 +79,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     private List<SessionEntity> sessionEntities;
 
     private SessionDao sessionDao;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,6 +109,8 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
         refresh();
         setTitle("当前" + LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME));
+
+        onRefresh();
     }
 
     @Override

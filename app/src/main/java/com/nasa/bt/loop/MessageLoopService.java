@@ -26,9 +26,9 @@ public class MessageLoopService extends Service {
     public static final String SERVER_IP_DEFAULT = "134.175.96.107";//208.167.242.129
     public static final int SERVER_PORT = 8848;
 
-    public static final int STATUS_CONNECTING=0;
-    public static final int STATUS_CONNECTED=1;
-    public static final int STATUS_DISCONNECTED=2;
+    public static final int STATUS_CONNECTING = 0;
+    public static final int STATUS_CONNECTED = 1;
+    public static final int STATUS_DISCONNECTED = 2;
 
     private ProcessorHandlers handlers;
 
@@ -54,8 +54,8 @@ public class MessageLoopService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         rebind();
 
-        BugTelegramApplication application= (BugTelegramApplication) getApplication();
-        if(!application.isThreadRunning()){
+        final BugTelegramApplication application = (BugTelegramApplication) getApplication();
+        if (!application.isThreadRunning()) {
             connection = new ClientThread(this);
             connection.start();
             application.setThreadRunningStatus(true);
@@ -64,7 +64,13 @@ public class MessageLoopService extends Service {
         MessageLoopUtils.registerListenerDefault("SERVICE_RECONNECT", SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT, new DatagramListener() {
             @Override
             public void onDatagramReach(Datagram datagram) {
-                connection.reconnect();
+                //线程自然死亡后软重连会无效，只能硬重连
+                if (!application.isThreadRunning()) {
+                    connection = new ClientThread(MessageLoopService.this);
+                    connection.start();
+                    application.setThreadRunningStatus(true);
+                } else
+                    connection.reconnect();
             }
         });
 
@@ -79,8 +85,8 @@ public class MessageLoopService extends Service {
     }
 
 
-    public void rebind(){
-        handlers=new ProcessorHandlers(this);
+    public void rebind() {
+        handlers = new ProcessorHandlers(this);
         handlers.addDefaultIntents();
     }
 
@@ -90,7 +96,7 @@ public class MessageLoopService extends Service {
         connection.stopConnection();
     }
 
-    public boolean sendDatagram(Datagram datagram){
+    public boolean sendDatagram(Datagram datagram) {
         return connection.sendDatagram(datagram);
     }
 
@@ -102,37 +108,37 @@ class ClientThread extends Thread {
     private MessageLoopService parent;
     private Socket socket;
     private SocketIOHelper helper;
-    private boolean running=true;
+    private boolean running = true;
 
-    private int tryTime=0;
+    private int tryTime = 0;
 
     private BugTelegramApplication application;
 
-    private static final Logger log= AppLogConfigurator.getLogger();
+    private static final Logger log = AppLogConfigurator.getLogger();
 
     public ClientThread(MessageLoopService parent) {
         this.parent = parent;
-        application= (BugTelegramApplication) parent.getApplication();
+        application = (BugTelegramApplication) parent.getApplication();
     }
 
-    public synchronized void stopConnection(){
+    public synchronized void stopConnection() {
         log.debug("收到断线通知，开始手动断线");
         application.setThreadRunningStatus(false);
 
-        running=false;
-        try{
+        running = false;
+        try {
             socket.close();
-        }catch (Exception e){
+        } catch (Exception e) {
 
         }
     }
 
-    public synchronized void reconnect(){
+    public synchronized void reconnect() {
         log.debug("收到手动重连通知，开始手动重连");
-        tryTime=0;
+        tryTime = 0;
         try {
             socket.close();
-        }catch (Exception e){
+        } catch (Exception e) {
         }
 
         parent.rebind();
@@ -144,20 +150,20 @@ class ClientThread extends Thread {
 
         Looper.prepare();
 
-        while(running){
+        while (running) {
+            tryTime++;
+            if (tryTime >= 5)
+                tryTime = 5;
+
+            log.info("因未知原因断线，" + tryTime + "秒后将尝试重连");
+
             doProcess();
 
-            tryTime++;
-            if(tryTime>=5)
-                tryTime=5;
-
-            log.info("因未知原因断线，"+tryTime+"秒后将尝试重连");
-
             try {
-                for(int i=0;i<tryTime;i++){
+                for (int i = 0; i < tryTime; i++) {
                     Thread.sleep(1000);
                 }
-            }catch (Exception e){
+            } catch (Exception e) {
 
             }
         }
@@ -165,20 +171,20 @@ class ClientThread extends Thread {
         log.info("监听线程结束（自然死亡）");
     }
 
-    private void doProcess(){
+    private void doProcess() {
         try {
             String ip = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_SERVER_IP);
             if (TextUtils.isEmpty(ip))
                 ip = MessageLoopService.SERVER_IP_DEFAULT;
 
             socket = new Socket();
-            socket.connect(new InetSocketAddress(ip,MessageLoopService.SERVER_PORT),10000);
+            socket.connect(new InetSocketAddress(ip, MessageLoopService.SERVER_PORT), 10000);
             helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
 
             while (true) {
                 //接受对方传来的公钥
                 Datagram datagram = helper.readIs();
-                if (datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE)){
+                if (datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE)) {
                     log.info("已收到服务器公钥");
                     break;
                 }
@@ -200,7 +206,7 @@ class ClientThread extends Thread {
             }
 
             log.info("身份验证数据包已发送，开始循环监听");
-            tryTime=0;
+            tryTime = 0;
 
             while (true) {
                 //开始循环监听
@@ -212,7 +218,7 @@ class ClientThread extends Thread {
             }
 
         } catch (Exception e) {
-            log.error("处理数据包时错误",e);
+            log.error("处理数据包时错误", e);
         }
     }
 
@@ -240,7 +246,7 @@ class ClientThread extends Thread {
         try {
             return helper.writeOs(datagram);
         } catch (Exception e) {
-            log.debug("发送数据包错误",e);
+            log.debug("发送数据包错误", e);
             return false;
         }
     }

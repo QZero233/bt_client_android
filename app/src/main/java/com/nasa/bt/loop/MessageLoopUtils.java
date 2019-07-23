@@ -84,6 +84,46 @@ public class MessageLoopUtils {
         registerActionReportListener(id,identifier,PRIORITY_DEFAULT,listener);
     }
 
+    public static void registerSpecifiedTimesListener(final String id, String identifier, final int times, final DatagramListener listener){
+        DatagramListener newListener=new DatagramListener() {
+            int count=0;
+
+            @Override
+            public void onDatagramReach(Datagram datagram) {
+                count++;
+                if(count>times){
+                    unregisterListener(id);
+                    return;
+                }
+
+                if(listener!=null)
+                    listener.onDatagramReach(datagram);
+            }
+        };
+
+        registerListenerNormal(id,identifier,newListener);
+    }
+
+    public static void registerSpecifiedTimesActionReportListener(final String id, String identifier, final int times, final ActionReportListener listener){
+        ActionReportListener newListener=new ActionReportListener() {
+            int count=0;
+
+            @Override
+            public void onActionReportReach(ActionReport actionReport) {
+                count++;
+                if(count>times){
+                    unregisterListener(id);
+                    return;
+                }
+
+                if(listener!=null)
+                    listener.onActionReportReach(actionReport);
+            }
+        };
+
+        registerActionReportListenerNormal(id,identifier,newListener);
+    }
+
     public static void unregisterListener(String id) {
         if (registered.get(id) != null) {
             localBroadcastManager.unregisterReceiver(registered.get(id));

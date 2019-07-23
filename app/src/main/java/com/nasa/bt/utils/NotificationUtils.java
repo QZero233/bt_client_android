@@ -23,6 +23,9 @@ import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
+import com.nasa.bt.log.AppLogConfigurator;
+
+import org.apache.log4j.Logger;
 
 import java.util.List;
 
@@ -31,6 +34,8 @@ import java.util.List;
  */
 public class NotificationUtils extends ContextWrapper {
 
+    private static final Logger log= AppLogConfigurator.getLogger();
+
     private NotificationManager manager;
     public static final String id = "channel_1";
     public static final String name = "channel_name_1";
@@ -38,6 +43,7 @@ public class NotificationUtils extends ContextWrapper {
 
     public NotificationUtils(Context context){
         super(context);
+        getManager();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -79,10 +85,14 @@ public class NotificationUtils extends ContextWrapper {
         }
     }
 
+    public void cancelNotification(){
+        manager.cancelAll();
+    }
+
     public void sendMessageNotification(){
         /**
          * 1.先获取所有未读消息，如无则返回
-         * 2.遍历未读消息，如果不是同一会话就显示 有多条未读消息，Intent设置为SessionListActivity
+         * 2.遍历未读消息，如果不是同一会话就显示 有多条未读消息，Intent设置为SessionListActivity（如果本地无该会话就忽略这条消息）
          * 3.如果是同一会话就获取会话信息，如果是普通会话，就显示 有xx发来的n条未读消息，内容设置为最近一条的消息，Intent设置为ChatActivity
          * 4.如果是加密会话，就显示 xx发来的n条加密未读消息，Intent设置为SessionListActivity
          */
@@ -92,9 +102,13 @@ public class NotificationUtils extends ContextWrapper {
         if(unreadMessages==null || unreadMessages.isEmpty())
             return;
 
+        SessionDao sessionDao=new SessionDao(this);
         String lastSessionId=null;
         boolean same=true;
         for(MessageEntity messageEntity:unreadMessages){
+            if(sessionDao.getSessionById(messageEntity.getSessionId())==null)
+                continue;
+
             if(!TextUtils.isEmpty(lastSessionId) && !messageEntity.getSessionId().equals(lastSessionId)){
                 same=false;
                 break;
@@ -105,8 +119,9 @@ public class NotificationUtils extends ContextWrapper {
         if(!same){
             sendNotification("有多条未读消息","有多条未读消息",PendingIntent.getActivity(this,0,
                     new Intent(this, SessionListActivity.class),PendingIntent.FLAG_UPDATE_CURRENT));
+
+            log.debug("未读消息列表 "+unreadMessages);
         }else{
-            SessionDao sessionDao=new SessionDao(this);
             SessionEntity sessionEntity=sessionDao.getSessionById(lastSessionId);
             if(sessionEntity==null)
                 return;
