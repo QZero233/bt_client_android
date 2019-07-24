@@ -1,6 +1,7 @@
 package com.nasa.bt;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.support.design.widget.TextInputEditText;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -10,10 +11,13 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.crypt.SHA256Utils;
+import com.nasa.bt.loop.ActionReportListener;
 import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.loop.SendDatagramUtils;
@@ -22,6 +26,23 @@ import com.nasa.bt.utils.LocalSettingsUtils;
 public class AuthInfoActivity extends AppCompatActivity {
 
     private TextInputEditText et_name,et_code;
+    private ProgressBar pb;
+
+    private ActionReportListener authReportListener=new ActionReportListener() {
+        @Override
+        public void onActionReportReach(ActionReport actionReport) {
+            pb.setVisibility(View.GONE);
+            if(actionReport.getActionStatusInBoolean()){
+                //身份验证成功
+                Toast.makeText(AuthInfoActivity.this,"身份验证成功",Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(AuthInfoActivity.this,SessionListActivity.class));
+                finish();
+            }else{
+                //身份验证失败
+                Toast.makeText(AuthInfoActivity.this,"身份验证失败，请检查输入信息是否有误",Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +51,7 @@ public class AuthInfoActivity extends AppCompatActivity {
 
         et_name=findViewById(R.id.et_name);
         et_code=findViewById(R.id.et_code);
+        pb=findViewById(R.id.pb);
 
         String nameLast=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_NAME_LAST);
         String codeLast=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_CODE_LAST);
@@ -59,7 +81,8 @@ public class AuthInfoActivity extends AppCompatActivity {
 
         MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
 
-        finish();
+        pb.setVisibility(View.VISIBLE);
+        MessageLoopUtils.registerSpecifiedTimesActionReportListener("AUTH_INFO_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,1,authReportListener);
     }
 
     @Override
@@ -90,8 +113,6 @@ public class AuthInfoActivity extends AppCompatActivity {
                     Toast.makeText(AuthInfoActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
 
                     MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
-
-                    finish();
                 }
             });
             builder.show();

@@ -15,6 +15,8 @@ import com.nasa.bt.data.entity.UpdateEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.update.UpdateProcessor;
+import com.nasa.bt.upgrade.UpgradeStatus;
+import com.nasa.bt.upgrade.UpgradeUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.NotificationUtils;
 
@@ -232,6 +234,28 @@ public class ProcessorHandlers {
         }
     };
 
+    private DatagramListener defaultUpgradeVerCodeListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            int verCode=Integer.parseInt(datagram.getParamsAsString().get("ver_code"));
+            int currentCode= UpgradeUtils.getVersionCode(context);
+            if(currentCode<verCode){
+                Datagram datagramSent=new Datagram(Datagram.IDENTIFIER_UPGRADE_DETAIL,null);
+                SendDatagramUtils.sendDatagram(datagramSent);
+            }else{
+                UpgradeUtils.deleteTempUpgradeStatusFil(context);
+            }
+        }
+    };
+
+    private DatagramListener defaultUpgradeDetailListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            String json=datagram.getParamsAsString().get("upgrade_status");
+            UpgradeUtils.writeTempUpgradeStatusFile(context,json);
+        }
+    };
+
     public ProcessorHandlers(Context context) {
         this.context = context;
 
@@ -249,6 +273,8 @@ public class ProcessorHandlers {
         MessageLoopUtils.registerListenerDefault("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL,defaultSessionInfoListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_INDEX",Datagram.IDENTIFIER_UPDATE_INDEX,defaultUpdateIndexListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_UPGRADE_VER_CODE",Datagram.IDENTIFIER_UPGRADE_VER_CODE,defaultUpgradeVerCodeListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_UPGRADE_DETAIL",Datagram.IDENTIFIER_UPGRADE_DETAIL,defaultUpgradeDetailListener);
 
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_SEND_MESSAGE,defaultSendMessageReportListener);
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,defaultAuthReportListener);

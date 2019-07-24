@@ -5,9 +5,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -23,9 +22,10 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
+import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
@@ -42,6 +42,8 @@ import com.nasa.bt.session.JoinSessionCallback;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.session.SessionProperties;
+import com.nasa.bt.upgrade.UpgradeStatus;
+import com.nasa.bt.upgrade.UpgradeUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
@@ -57,7 +59,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     private DatagramListener changedListener=new DatagramListener() {
         @Override
         public void onDatagramReach(Datagram datagram) {
-            refresh();
+            reloadSessionList();
         }
     };
 
@@ -65,11 +67,50 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         @Override
         public void onActionReportReach(ActionReport actionReport) {
             new NotificationUtils(SessionListActivity.this).cancelNotification();
-            refresh();
+            reloadSessionList();
             if (sl_main.isRefreshing()) {
                 sl_main.setRefreshing(false);
                 Toast.makeText(SessionListActivity.this, "刷新成功", Toast.LENGTH_SHORT).show();
             }
+            setTitle("BugTelegram内测版");
+        }
+    };
+
+    private ActionReportListener authReportListener=new ActionReportListener() {
+        @Override
+        public void onActionReportReach(ActionReport actionReport) {
+            if(!actionReport.getActionStatusInBoolean()){
+                //身份验证未通过
+                startActivity(new Intent(SessionListActivity.this,AuthInfoActivity.class));
+                finish();
+            }
+        }
+    };
+
+    private DatagramListener connectionStatusListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            int status=Integer.parseInt(datagram.getParamsAsString().get("status"));
+            switch (status){
+                case MessageLoopService.STATUS_CONNECTED:
+                    setTitle("刷新中......");
+                    sync();
+                    refresh();
+                    break;
+                case MessageLoopService.STATUS_CONNECTING:
+                    setTitle("正在连接服务器");
+                    break;
+                case MessageLoopService.STATUS_DISCONNECTED:
+                    setTitle("已断线");
+                    break;
+            }
+        }
+    };
+
+    private DatagramListener upgradeDetailListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            checkUpgrade();
         }
     };
 
@@ -86,12 +127,38 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_session_list);
 
+        /**
+         * 打开主界面之后依次进行
+         * 检查更新信息
+         * 检查是否输入身份验证信息，如果没有就跳转并finish
+         * 连接服务器（无论是否已连接都重连，主窗口监听连接情况，如果身份验证失败就跳转&finish）
+         * 同步（告诉服务器本地已有的会话ID等，服务器返回客户端没有的）
+         * 刷新（服务器返回新消息或新更新）
+         */
+
+        checkUpgrade();
+
+        if(!checkIfLocalAuthInfoExists()){
+            startActivity(new Intent(this, AuthInfoActivity.class));
+            Toast.makeText(this, "请设置基本信息", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        LocalDatabaseHelper.reset(this);
+
+        startService(new Intent(this, MessageLoopService.class));
+
         MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,refreshReportListener);
+        MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,authReportListener);
 
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_SESSION",Datagram.IDENTIFIER_SESSION_DETAIL,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_USER_INFO",Datagram.IDENTIFIER_USER_INFO,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPDATE",Datagram.IDENTIFIER_UPDATE_DETAIL,changedListener);
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPGRADE",Datagram.IDENTIFIER_UPGRADE_DETAIL,upgradeDetailListener);
+
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_CONNECTION_STATUS",SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,connectionStatusListener);
 
         sessionDao=new SessionDao(this);
 
@@ -107,10 +174,63 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         });
         lv_sessions.setOnItemLongClickListener(this);
 
-        refresh();
+        reloadSessionList();
         setTitle("当前" + LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME));
 
-        onRefresh();
+
+    }
+
+    private boolean  checkUpgrade(){
+        final UpgradeStatus upgradeStatus= UpgradeUtils.readTempUpgradeStatusFil(this);
+        if(upgradeStatus!=null){
+            AlertDialog.Builder builder=new AlertDialog.Builder(SessionListActivity.this);
+            builder.setTitle("发现新版本 "+upgradeStatus.getNewestName());
+            builder.setMessage("更新日志：\n"+upgradeStatus.getUpgradeLog());
+            builder.setNegativeButton("退出", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    finish();
+                }
+            });
+            builder.setPositiveButton("更新", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    Intent intent=new Intent(Intent.ACTION_VIEW);
+                    Uri uri=Uri.parse(upgradeStatus.getDownloadUrl());
+                    intent.setData(uri);
+                    startActivity(intent);
+
+                    finish();
+                }
+            });
+            builder.setCancelable(false);
+            builder.show();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean checkIfLocalAuthInfoExists(){
+        String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
+        String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
+        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
+            return false;
+        }
+        return true;
+    }
+
+    private void refresh(){
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
+        SendDatagramUtils.sendDatagram(datagram);
+    }
+
+    private void sync(){
+        String sessionIds="";
+        for(SessionEntity sessionEntity:sessionEntities){
+            sessionIds+=sessionEntity.getSessionId();
+        }
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SYNC,new ParamBuilder().putParam("session_id",sessionIds).build());
+        SendDatagramUtils.sendDatagram(datagram);
     }
 
     @Override
@@ -118,13 +238,16 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         super.onDestroy();
 
         MessageLoopUtils.unregisterListener("SESSION_LIST_REFRESH_REPORT");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_AUTH_REPORT");
         MessageLoopUtils.unregisterListener("SESSION_LIST_MESSAGE");
         MessageLoopUtils.unregisterListener("SESSION_LIST_SESSION");
         MessageLoopUtils.unregisterListener("SESSION_LIST_USER_INFO");
         MessageLoopUtils.unregisterListener("SESSION_LIST_UPDATE");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_UPGRADE");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_CONNECTION_STATUS");
     }
 
-    private void refresh() {
+    private void reloadSessionList() {
         sessionEntities=sessionDao.getAllSession();
         lv_sessions.setAdapter(new SessionListAdapter(sessionEntities,this));
     }
@@ -152,7 +275,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     @Override
     protected void onRestart() {
         super.onRestart();
-        refresh();
+        reloadSessionList();
     }
 
     @Override
@@ -220,8 +343,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     @Override
     public void onRefresh() {
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
-        SendDatagramUtils.sendDatagram(datagram);
+        refresh();
     }
 
     @Override

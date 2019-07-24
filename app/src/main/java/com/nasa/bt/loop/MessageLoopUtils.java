@@ -10,6 +10,7 @@ import android.support.v4.content.LocalBroadcastManager;
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -140,7 +141,12 @@ public class MessageLoopUtils {
     }
 
     public static void sendLocalDatagram(String identifier) {
+        sendLocalDatagram(identifier,new ParamBuilder());
+    }
+
+    public static void sendLocalDatagram(String identifier, ParamBuilder param) {
         Intent intent = new Intent(ACTION_BEGIN_WITH + identifier);
+        intent.putExtra("datagram",new Datagram(identifier,param.build()));
         localBroadcastManager.sendBroadcast(intent);
     }
 }

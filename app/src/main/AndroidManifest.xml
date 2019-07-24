@@ -13,12 +13,11 @@
         android:theme="@style/AppTheme">
         <activity android:name=".SessionDetailActivity"></activity>
         <activity android:name=".SDGameActivity" />
-        <activity android:name=".SessionListActivity" />
         <activity android:name=".UserDetailActivity" />
         <activity android:name=".ContactActivity" />
         <activity android:name=".ChatActivity" />
         <activity android:name=".AuthInfoActivity" />
-        <activity android:name=".MainActivity">
+        <activity android:name=".SessionListActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

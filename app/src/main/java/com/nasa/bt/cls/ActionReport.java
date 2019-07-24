@@ -51,6 +51,10 @@ public class ActionReport {
         this.more = more;
     }
 
+    public boolean getActionStatusInBoolean(){
+        return actionStatus.equals(STATUS_SUCCESS);
+    }
+
     @Override
     public String toString() {
         return "ActionReport{" +

@@ -9,6 +9,7 @@ import android.text.TextUtils;
 
 import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.socket.SocketIOHelper;
@@ -55,11 +56,6 @@ public class MessageLoopService extends Service {
         rebind();
 
         final BugTelegramApplication application = (BugTelegramApplication) getApplication();
-        if (!application.isThreadRunning()) {
-            connection = new ClientThread(this);
-            connection.start();
-            application.setThreadRunningStatus(true);
-        }
 
         MessageLoopUtils.registerListenerDefault("SERVICE_RECONNECT", SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT, new DatagramListener() {
             @Override
@@ -80,6 +76,14 @@ public class MessageLoopService extends Service {
                 connection.stopConnection();
             }
         });
+
+        if (!application.isThreadRunning()) {
+            connection = new ClientThread(this);
+            connection.start();
+            application.setThreadRunningStatus(true);
+        }else{
+            MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,new ParamBuilder().putParam("status",String.valueOf(STATUS_CONNECTED)));
+        }
 
         return super.onStartCommand(intent, flags, startId);
     }
@@ -121,6 +125,10 @@ class ClientThread extends Thread {
         application = (BugTelegramApplication) parent.getApplication();
     }
 
+    private synchronized void changeConnectionStatus(int newStatus){
+        MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,new ParamBuilder().putParam("status",String.valueOf(newStatus)));
+    }
+
     public synchronized void stopConnection() {
         log.debug("收到断线通知，开始手动断线");
         application.setThreadRunningStatus(false);
@@ -151,11 +159,15 @@ class ClientThread extends Thread {
         Looper.prepare();
 
         while (running) {
+            changeConnectionStatus(MessageLoopService.STATUS_DISCONNECTED);//
+
             tryTime++;
             if (tryTime >= 5)
                 tryTime = 5;
 
             log.info("因未知原因断线，" + tryTime + "秒后将尝试重连");
+
+            changeConnectionStatus(MessageLoopService.STATUS_CONNECTING);//重连中
 
             doProcess();
 
@@ -207,6 +219,8 @@ class ClientThread extends Thread {
 
             log.info("身份验证数据包已发送，开始循环监听");
             tryTime = 0;
+
+            changeConnectionStatus(MessageLoopService.STATUS_CONNECTED);//已连接
 
             while (true) {
                 //开始循环监听

@@ -12,6 +12,7 @@ public class SendDatagramUtils {
 
     public static final String INBOX_IDENTIFIER_DISCONNECTED="IN_DISC";
     public static final String INBOX_IDENTIFIER_RECONNECT="IN_RECO";
+    public static final String INBOX_IDENTIFIER_CONNECTION_STATUS="IN_COST";
 
     private static final Logger log= AppLogConfigurator.getLogger();
 
