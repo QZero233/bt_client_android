@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
+import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -127,6 +128,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     private ListView lv_sessions;
     private SwipeRefreshLayout sl_main;
     private TextView tv_name;
+    private DrawerLayout dl;
 
     private List<SessionEntity> sessionEntities;
 
@@ -179,6 +181,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         lv_sessions = findViewById(R.id.lv_users);
         sl_main = findViewById(R.id.sl_main);
 
+
         sl_main.setOnRefreshListener(this);
         lv_sessions.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -209,7 +212,8 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     }
 
     private void initDrawer(){
-        DrawerLayout dl=findViewById(R.id.dl);
+
+        dl=findViewById(R.id.dl);
         NavigationView nv=findViewById(R.id.nv);
         Toolbar tb=findViewById(R.id.tb);
         setSupportActionBar(tb);
@@ -355,7 +359,13 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         return true;
     }
 
-
+    @Override
+    public void onBackPressed() {
+        if(dl.isDrawerOpen(GravityCompat.START)){
+            dl.closeDrawer(GravityCompat.START);
+        }else
+            super.onBackPressed();
+    }
 }
 
 class SessionListAdapter extends BaseAdapter {

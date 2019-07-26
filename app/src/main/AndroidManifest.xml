@@ -16,7 +16,8 @@
         <activity android:name=".SDGameActivity" />
         <activity android:name=".UserDetailActivity" />
         <activity android:name=".ContactActivity" />
-        <activity android:name=".ChatActivity" />
+        <activity android:name=".ChatActivity"
+            android:windowSoftInputMode="adjustPan"/>
         <activity android:name=".AuthInfoActivity" />
         <activity android:name=".SessionListActivity"
             android:theme="@style/AppTheme.NoActionBar">

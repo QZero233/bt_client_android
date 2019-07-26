@@ -44,7 +44,6 @@ import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -396,7 +395,7 @@ class ChatMsgAdapter extends BaseAdapter {
         TextView tv_time = v.findViewById(R.id.tv_time);
         TextView tv_status = v.findViewById(R.id.tv_status);
         ImageView iv = v.findViewById(R.id.iv);
-        LinearLayout ll = v.findViewById(R.id.ll);
+        LinearLayout ll = v.findViewById(R.id.ll_input);
 
         if (!messageEntity.getSrcUid().equals(dstUid)) {
             //自己发的，东西往右边放
