@@ -41,6 +41,8 @@ public class Datagram implements Serializable {
     public static final String IDENTIFIER_UPGRADE_VER_CODE="VERC";
     public static final String IDENTIFIER_UPGRADE_DETAIL="UGDE";
 
+    public static final String IDENTIFIER_USER_INFO_MINE="UIMI";
+
     public static final int ID_LENGTH=36;
 
     /**

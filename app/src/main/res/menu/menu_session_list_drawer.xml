@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:id="@+id/m_group_1">
+        <item
+            android:id="@+id/m_contact"
+            android:icon="@mipmap/icon_contact"
+            android:title="联系人" />
+    </group>
+    <group android:id="@+id/m_group_2">
+        <item
+            android:id="@+id/m_settings"
+            android:icon="@mipmap/icon_settings"
+            android:title="设置" />
+        <item
+            android:id="@+id/m_about"
+            android:icon="@mipmap/icon_about"
+            android:title="关于" />
+    </group>
+</menu>

@@ -18,7 +18,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.data.dao.ContactDao;
 import com.nasa.bt.data.dao.UserInfoDao;
+import com.nasa.bt.data.entity.ContactEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.loop.DatagramListener;
 import com.nasa.bt.loop.MessageLoopUtils;
@@ -34,6 +36,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
 
     private SearchView sv_name;
     private ListView lv_contact;
+    private ContactDao contactDao;
     private UserInfoDao userInfoDao;
     private List<UserInfoEntity> userInfoEntityList;
     private ProgressBar pb;
@@ -47,10 +50,17 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
             if(params.get("exist").equalsIgnoreCase("0")){
                 Toast.makeText(ContactActivity.this,"用户不存在",Toast.LENGTH_SHORT).show();
                 return;
+            }else{
+                ContactEntity contactEntity=new ContactEntity(params.get("uid"));
+                if(contactDao.addContact(contactEntity)){
+                    Toast.makeText(ContactActivity.this,"搜索添加成功",Toast.LENGTH_SHORT).show();
+                    reload();
+                }else{
+                    Toast.makeText(ContactActivity.this,"添加失败",Toast.LENGTH_SHORT).show();
+                }
             }
 
-            Toast.makeText(ContactActivity.this,"搜索添加成功",Toast.LENGTH_SHORT).show();
-            reload();
+
         }
     };
 
@@ -62,7 +72,9 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         sv_name=findViewById(R.id.sv_name);
         lv_contact=findViewById(R.id.lv_contact);
         pb=findViewById(R.id.pb);
+
         userInfoDao=new UserInfoDao(this);
+        contactDao=new ContactDao(this);
 
         sv_name.setOnQueryTextListener(this);
         lv_contact.setOnItemClickListener(this);
@@ -99,9 +111,14 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
     }
 
     private void reload(){
-        userInfoEntityList=userInfoDao.getAllUserInfo();
-        if(userInfoEntityList ==null)
-            userInfoEntityList =new ArrayList<>();
+        List<ContactEntity> contactEntityList=contactDao.getAllContacts();
+        userInfoEntityList=new ArrayList<>();
+        if(contactEntityList!=null){
+            for(ContactEntity contactEntity:contactEntityList){
+                UserInfoEntity userInfoEntity=userInfoDao.getUserInfoById(contactEntity.getDstUid());
+                userInfoEntityList.add(userInfoEntity);
+            }
+        }
         lv_contact.setAdapter(new ShowContactAdapter(userInfoEntityList,this));
     }
 
@@ -128,7 +145,7 @@ public class ContactActivity extends AppCompatActivity implements SearchView.OnQ
         builder.setPositiveButton("删除", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                userInfoDao.deleteUser(userInfoEntity.getName());
+                contactDao.deleteContactByUid(userInfoEntity.getId());
                 reload();
                 Toast.makeText(ContactActivity.this,"删除成功",Toast.LENGTH_SHORT).show();
             }

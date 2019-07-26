@@ -125,19 +125,23 @@ public class ProcessorHandlers {
     private ActionReportListener defaultAuthReportListener=new ActionReportListener() {
         @Override
         public void onActionReportReach(ActionReport actionReport) {
-            if(actionReport.getActionStatus().equals("0")){
-                //验证失败
-                log.info("身份验证失败");
-                LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_NAME,"");
-                LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_CODE_HASH,"");
-                return;
-            }else{
+            if(actionReport.getActionStatusInBoolean()){
                 log.info("身份验证成功，开始发送未处理数据包");
-                log.info("获得的uid "+actionReport.getMore());
-                LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,actionReport.getMore());
-                //处理未发出的数据包
                 SendDatagramUtils.sendUnsent();
             }
+        }
+    };
+
+    private DatagramListener defaultUserInfoOfMineListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            UserInfoEntity userInfoEntity=JSON.parseObject(datagram.getParamsAsString().get("user_info"),UserInfoEntity.class);
+            if(userInfoEntity==null)
+                return;
+
+            LocalSettingsUtils.save(context,LocalSettingsUtils.FIELD_UID,userInfoEntity.getId());
+            userInfoDao.addUser(userInfoEntity);
+            log.info("获得的个人信息 "+userInfoEntity);
         }
     };
 
@@ -275,6 +279,7 @@ public class ProcessorHandlers {
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPGRADE_VER_CODE",Datagram.IDENTIFIER_UPGRADE_VER_CODE,defaultUpgradeVerCodeListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPGRADE_DETAIL",Datagram.IDENTIFIER_UPGRADE_DETAIL,defaultUpgradeDetailListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_USER_INFO_MINE",Datagram.IDENTIFIER_USER_INFO_MINE,defaultUserInfoOfMineListener);
 
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_SEND_MESSAGE,defaultSendMessageReportListener);
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,defaultAuthReportListener);

@@ -7,21 +7,25 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.design.widget.NavigationView;
+import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
@@ -29,21 +33,20 @@ import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
-import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.ContactEntity;
 import com.nasa.bt.data.entity.MessageEntity;
+import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.loop.ActionReportListener;
 import com.nasa.bt.loop.DatagramListener;
-import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.MessageLoopService;
+import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.SendDatagramUtils;
 import com.nasa.bt.session.JoinSessionCallback;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.session.SessionProperties;
 import com.nasa.bt.upgrade.UpgradeStatus;
-import com.nasa.bt.upgrade.UpgradeUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
@@ -53,13 +56,20 @@ import java.util.List;
 /**
  * 心中有党，成绩理想
  */
-public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener {
+public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener,NavigationView.OnNavigationItemSelectedListener {
 
 
     private DatagramListener changedListener=new DatagramListener() {
         @Override
         public void onDatagramReach(Datagram datagram) {
             reloadSessionList();
+        }
+    };
+
+    private ActionReportListener syncReportListener=new ActionReportListener() {
+        @Override
+        public void onActionReportReach(ActionReport actionReport) {
+            setDrawerHeadText();
         }
     };
 
@@ -93,7 +103,6 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             int status=Integer.parseInt(datagram.getParamsAsString().get("status"));
             switch (status){
                 case MessageLoopService.STATUS_CONNECTED:
-                    setTitle("刷新中......");
                     sync();
                     refresh();
                     break;
@@ -110,17 +119,19 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     private DatagramListener upgradeDetailListener=new DatagramListener() {
         @Override
         public void onDatagramReach(Datagram datagram) {
-            checkUpgrade();
+            String json=datagram.getParamsAsString().get("upgrade_status");
+            checkUpgrade(JSON.parseObject(json,UpgradeStatus.class));
         }
     };
 
     private ListView lv_sessions;
     private SwipeRefreshLayout sl_main;
+    private TextView tv_name;
 
     private List<SessionEntity> sessionEntities;
 
     private SessionDao sessionDao;
-
+    private UserInfoDao userInfoDao;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -136,8 +147,6 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
          * 刷新（服务器返回新消息或新更新）
          */
 
-        checkUpgrade();
-
         if(!checkIfLocalAuthInfoExists()){
             startActivity(new Intent(this, AuthInfoActivity.class));
             Toast.makeText(this, "请设置基本信息", Toast.LENGTH_SHORT).show();
@@ -145,12 +154,14 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             return;
         }
 
+
         LocalDatabaseHelper.reset(this);
 
         startService(new Intent(this, MessageLoopService.class));
 
         MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,refreshReportListener);
         MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,authReportListener);
+        MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_SYNC_REPORT",Datagram.IDENTIFIER_SYNC,syncReportListener);
 
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_SESSION",Datagram.IDENTIFIER_SESSION_DETAIL,changedListener);
@@ -161,6 +172,9 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_CONNECTION_STATUS",SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,connectionStatusListener);
 
         sessionDao=new SessionDao(this);
+        userInfoDao=new UserInfoDao(this);
+
+        initDrawer();
 
         lv_sessions = findViewById(R.id.lv_users);
         sl_main = findViewById(R.id.sl_main);
@@ -180,8 +194,56 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
     }
 
-    private boolean  checkUpgrade(){
-        final UpgradeStatus upgradeStatus= UpgradeUtils.readTempUpgradeStatusFil(this);
+    private void setDrawerHeadText(){
+        tv_name.setText("正在同步......");
+
+        String uid=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID);
+        if(TextUtils.isDigitsOnly(uid))
+            return;
+
+        UserInfoEntity userInfoEntity=userInfoDao.getUserInfoById(uid);
+        if(userInfoEntity==null)
+            return;
+
+        tv_name.setText("欢迎用户 "+userInfoEntity.getName());
+    }
+
+    private void initDrawer(){
+        DrawerLayout dl=findViewById(R.id.dl);
+        NavigationView nv=findViewById(R.id.nv);
+        Toolbar tb=findViewById(R.id.tb);
+        setSupportActionBar(tb);
+
+        tb.setTitleTextColor(Color.WHITE);
+
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, dl, tb,R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        dl.addDrawerListener(toggle);
+        toggle.syncState();
+
+        nv.setNavigationItemSelectedListener(this);
+
+        tv_name=nv.getHeaderView(0).findViewById(R.id.tv_name);
+        setDrawerHeadText();
+    }
+
+    @Override
+    public boolean onNavigationItemSelected(@NonNull MenuItem menuItem) {
+        switch (menuItem.getItemId()){
+            case R.id.m_settings:
+                startActivity(new Intent(this,SettingsActivity.class));
+                finish();
+                break;
+            case R.id.m_contact:
+                startActivity(new Intent(this, ContactActivity.class));
+                break;
+            case R.id.m_about:
+                Toast.makeText(this,"某勤奋的作者：此功能未完成（手动滑稽）",Toast.LENGTH_SHORT).show();
+                break;
+        }
+        return false;
+    }
+
+    private boolean  checkUpgrade(final UpgradeStatus upgradeStatus){
         if(upgradeStatus!=null){
             AlertDialog.Builder builder=new AlertDialog.Builder(SessionListActivity.this);
             builder.setTitle("发现新版本 "+upgradeStatus.getNewestName());
@@ -222,6 +284,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     private void refresh(){
         Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
         SendDatagramUtils.sendDatagram(datagram);
+        setTitle("刷新中......");
     }
 
     private void sync(){
@@ -239,6 +302,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
         MessageLoopUtils.unregisterListener("SESSION_LIST_REFRESH_REPORT");
         MessageLoopUtils.unregisterListener("SESSION_LIST_AUTH_REPORT");
+        MessageLoopUtils.unregisterListener("SESSION_LIST_SYNC_REPORT");
         MessageLoopUtils.unregisterListener("SESSION_LIST_MESSAGE");
         MessageLoopUtils.unregisterListener("SESSION_LIST_SESSION");
         MessageLoopUtils.unregisterListener("SESSION_LIST_USER_INFO");
@@ -279,69 +343,6 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_session_list, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.m_settings) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
-            final EditText et_ip = new EditText(this);
-            String ip = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_SERVER_IP);
-            if (TextUtils.isEmpty(ip))
-                ip = MessageLoopService.SERVER_IP_DEFAULT;
-            et_ip.setText(ip);
-
-            builder.setView(et_ip);
-            builder.setMessage("请输入服务器IP");
-            builder.setNegativeButton("取消", null);
-            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    String newIp = et_ip.getText().toString();
-                    if(TextUtils.isEmpty(newIp))
-                        newIp=MessageLoopService.SERVER_IP_DEFAULT;
-                    LocalSettingsUtils.save(SessionListActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
-                    Toast.makeText(SessionListActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
-
-                    MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
-
-                    finish();
-                }
-            });
-            builder.show();
-        } else if (item.getItemId() == R.id.m_reset_key) {
-            try {
-                KeyUtils utils = KeyUtils.getInstance();
-                utils.genKeySet();
-                utils.saveKeySet();
-
-                MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
-
-                Toast.makeText(this, "重置成功", Toast.LENGTH_SHORT).show();
-                finish();
-            } catch (Exception e) {
-                Toast.makeText(this, "重置失败", Toast.LENGTH_SHORT).show();
-            }
-        } else if (item.getItemId() == R.id.m_contact) {
-            startActivity(new Intent(this, ContactActivity.class));
-        } else if (item.getItemId() == R.id.m_quit) {
-            LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_NAME, "");
-            LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_CODE_HASH, "");
-            LocalSettingsUtils.save(this, LocalSettingsUtils.FIELD_CODE_LAST, "");
-
-            MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_DISCONNECTED);
-
-            Toast.makeText(this, "退出成功", Toast.LENGTH_SHORT).show();
-            finish();
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
     public void onRefresh() {
         refresh();
     }
@@ -353,6 +354,8 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         startActivity(intent);
         return true;
     }
+
+
 }
 
 class SessionListAdapter extends BaseAdapter {

@@ -7,6 +7,7 @@ import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper;
 import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.support.ConnectionSource;
 import com.j256.ormlite.table.TableUtils;
+import com.nasa.bt.data.entity.ContactEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
@@ -18,7 +19,7 @@ import org.apache.log4j.Logger;
 public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
 
     private static final String LOCAL_DB_NAME_BEGIN="appData";
-    private static final int CURRENT_VER_CODE=2;
+    private static final int CURRENT_VER_CODE=3;
 
     private static final Logger log= AppLogConfigurator.getLogger();
 
@@ -57,6 +58,7 @@ public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
             TableUtils.createTableIfNotExists(connectionSource, MessageEntity.class);
             TableUtils.createTableIfNotExists(connectionSource, SessionEntity.class);
             TableUtils.createTableIfNotExists(connectionSource, UserInfoEntity.class);
+            TableUtils.createTableIfNotExists(connectionSource, ContactEntity.class);
         }catch (Exception e){
             log.error("使用ORM建表时错误",e);
         }
@@ -74,7 +76,15 @@ public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
             }catch (Exception e){
                 log.error("升级版本 1—>2 时异常",e);
             }
-
+        }else if(oldVer==2){
+            /**
+             * 1.增加了 ContactEntity 这个实体类
+             */
+            try {
+                TableUtils.createTableIfNotExists(connectionSource,ContactEntity.class);
+            }catch (Exception e){
+                log.error("升级版本 2—>3 时异常",e);
+            }
         }
     }
 }

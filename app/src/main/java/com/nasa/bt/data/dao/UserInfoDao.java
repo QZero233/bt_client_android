@@ -49,7 +49,7 @@ public class UserInfoDao {
     }
 
 
-    public boolean deleteUser(String name){
+    public boolean deleteUserByName(String name){
         try {
             DeleteBuilder deleteBuilder=dao.deleteBuilder();
             deleteBuilder.setWhere(deleteBuilder.where().eq("name",name));

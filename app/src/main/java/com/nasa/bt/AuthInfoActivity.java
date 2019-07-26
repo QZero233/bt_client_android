@@ -94,28 +94,8 @@ public class AuthInfoActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.m_settings) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
-            final EditText et_ip = new EditText(this);
-            String ip = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_SERVER_IP);
-            if (TextUtils.isEmpty(ip))
-                ip = MessageLoopService.SERVER_IP_DEFAULT;
-            et_ip.setText(ip);
-
-            builder.setView(et_ip);
-            builder.setMessage("请输入服务器IP");
-            builder.setNegativeButton("取消", null);
-            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    String newIp = et_ip.getText().toString();
-                    LocalSettingsUtils.save(AuthInfoActivity.this, LocalSettingsUtils.FIELD_SERVER_IP, newIp);
-                    Toast.makeText(AuthInfoActivity.this, "修改成功", Toast.LENGTH_SHORT).show();
-
-                    MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
-                }
-            });
-            builder.show();
+            startActivity(new Intent(this,SettingsActivity.class));
+            finish();
         }
 
         return super.onOptionsItemSelected(item);
