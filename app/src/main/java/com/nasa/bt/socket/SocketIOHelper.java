@@ -1,6 +1,7 @@
 package com.nasa.bt.socket;
 
 import com.nasa.bt.cls.Datagram;
+import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.crypt.CryptModule;
 import com.nasa.bt.crypt.CryptModuleFactory;
 import com.nasa.bt.crypt.CryptModuleRSA;
@@ -12,9 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +40,9 @@ public class SocketIOHelper {
      * 当前使用的加密模块
      */
     private CryptModule cryptModule;
+
+    public static final String NEED_PUB_KEY="pubKey";
+    public static final String NEED_CA="CA";
 
     /**
      * 初始化helper类
@@ -120,10 +122,11 @@ public class SocketIOHelper {
 
     /**
      * 从输入流中读取数据并转为数据包对象
+     * @param encrypted 是否调用模块解密
      * @return 读取到的数据
      * @throws RuntimeException 当读取输入流错误时，抛出异常
      */
-    public Datagram readIs() throws RuntimeException{
+    private Datagram readIs(boolean encrypted) throws RuntimeException{
         synchronized (is){
             try {
 
@@ -141,7 +144,12 @@ public class SocketIOHelper {
                 byte[] buf=readBufFromIs(is,dataLength);
 
                 //全部内容读取完成，开始解密数据包
-                byte[] decrypted=cryptModule.doDecrypt(buf,null,null);
+                byte[] decrypted;
+                if(encrypted)
+                    decrypted=cryptModule.doDecrypt(buf,null,null);
+                else
+                    decrypted=buf;
+
                 //解密失败返回空数据包
                 if(decrypted==null){
                     return new Datagram(Datagram.IDENTIFIER_NONE,null);
@@ -197,12 +205,22 @@ public class SocketIOHelper {
     }
 
     /**
+     * 读取输入流，默认需要解密
+     * @return
+     * @throws RuntimeException
+     */
+    public Datagram readIs() throws RuntimeException{
+        return readIs(true);
+    }
+
+    /**
      * 根据数据包对象写输出流
      * @param datagram 数据包对象
+     * @param encrypt 是否调用模块加密
      * @return 是否写入成功
      * @throws IllegalArgumentException 当标识符不合法时抛出异常
      */
-    public boolean writeOs(Datagram datagram) throws IllegalArgumentException{
+    private boolean writeOs(Datagram datagram,boolean encrypt) throws IllegalArgumentException{
         if(datagram==null)
             return false;
 
@@ -233,7 +251,12 @@ public class SocketIOHelper {
                     tmpBuf.write(paramContentBuf);
                 }
 
-                byte[] encryptedBuf=cryptModule.doEncrypt(tmpBuf.toByteArray(),null,null);
+                byte[] encryptedBuf;
+                if(encrypt)
+                    encryptedBuf=cryptModule.doEncrypt(tmpBuf.toByteArray(),null,null);
+                else
+                    encryptedBuf=tmpBuf.toByteArray();
+
                 //加密失败
                 if(encryptedBuf==null)
                     return false;
@@ -250,34 +273,56 @@ public class SocketIOHelper {
     }
 
     /**
-     * 向服务器发送自己的公钥
-     * @param key 公钥
-     * @return 是否成功
+     * 写输出流，默认需要加密
+     * @param datagram
+     * @return
+     * @throws IllegalArgumentException
      */
-    public boolean sendPublicKey(String key){
-        if(key==null || key.equals(""))
-            return false;
-
-        try {
-            ByteArrayOutputStream outputStream=new ByteArrayOutputStream();
-            outputStream.write(Datagram.IDENTIFIER_CHANGE_KEY.getBytes());
-            outputStream.write(key.getBytes());
-
-            os.write(intToByteArray(outputStream.size()));
-            os.write(intToByteArray(outputStream.size()));
-            os.write(outputStream.toByteArray());
-            return true;
-        }catch (Exception e){
-            log.error("发送公钥失败",e);
-            return false;
-        }
+    public boolean writeOs(Datagram datagram) throws IllegalArgumentException{
+        return writeOs(datagram,true);
     }
 
-    /**
-     * 设置私钥
-     * @param key 私钥
-     */
-    public void setPrivateKey(String key){
-        ((CryptModuleRSA)cryptModule).setMyPrivateKey(key);
+    public void initRSACryptModule(String dstPubKey,String myPriKey){
+        ((CryptModuleRSA)cryptModule).initKeys(dstPubKey,myPriKey);
+    }
+
+    public boolean sendNeed(String need){
+        ParamBuilder paramBuilder=new ParamBuilder().putParam("need",need);
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,paramBuilder.build());
+        return writeOs(datagram,false);
+    }
+
+    public String readNeed(){
+        Datagram datagram=readIs(false);
+        if(datagram==null || !datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE))
+            return null;
+
+        String need=datagram.getParamsAsString().get("need");
+        return need;
+    }
+
+    public Map<String,String> readHandShakeParam(){
+        Datagram datagram=readIs(false);
+        if(datagram==null || !datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE))
+            return null;
+
+        return datagram.getParamsAsString();
+    }
+
+    public boolean sendHandShakeParam(ParamBuilder param){
+        if(param==null)
+            return false;
+
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,param.build());
+        return writeOs(datagram,false);
+    }
+
+    public Datagram readHandShakeFeedback(){
+        return readIs(false);
+    }
+
+    public boolean sendFeedback(String feedback){
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,new ParamBuilder().putParam("feedback",feedback).build());
+        return writeOs(datagram,false);
     }
 }

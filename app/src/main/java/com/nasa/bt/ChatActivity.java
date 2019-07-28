@@ -41,6 +41,7 @@ import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.utils.ImageUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
+import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
 import com.nasa.bt.utils.UUIDUtils;
 
@@ -60,8 +61,6 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
     private SessionEntity sessionEntity;
     private SessionProcessor processor;
     private String dstUid, srcUid;
-
-
 
     private DatagramListener changedListener=new DatagramListener() {
         @Override

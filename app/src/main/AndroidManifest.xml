@@ -11,15 +11,19 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity android:name=".CAGenActivity"></activity>
+        <activity android:name=".RSAKeyManagerActivity" />
         <activity android:name=".SettingsActivity" />
         <activity android:name=".SessionDetailActivity" />
         <activity android:name=".SDGameActivity" />
         <activity android:name=".UserDetailActivity" />
         <activity android:name=".ContactActivity" />
-        <activity android:name=".ChatActivity"
-            android:windowSoftInputMode="adjustPan"/>
+        <activity
+            android:name=".ChatActivity"
+            android:windowSoftInputMode="adjustPan" />
         <activity android:name=".AuthInfoActivity" />
-        <activity android:name=".SessionListActivity"
+        <activity
+            android:name=".SessionListActivity"
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

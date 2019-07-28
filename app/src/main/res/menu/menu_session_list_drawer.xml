@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <group android:id="@+id/m_group_1">
+    <group android:id="@+id/m_group_user">
         <item
             android:id="@+id/m_contact"
             android:icon="@mipmap/icon_contact"
             android:title="联系人" />
     </group>
-    <group android:id="@+id/m_group_2">
+    <group android:id="@+id/m_group_key" >
+        <item
+            android:icon="@mipmap/key_set"
+            android:title="管理RSA密钥对" />
+        <item
+            android:icon="@mipmap/ca"
+            android:title="生成CA证书" />
+    </group>
+    <group android:id="@+id/m_group_system">
         <item
             android:id="@+id/m_settings"
             android:icon="@mipmap/icon_settings"

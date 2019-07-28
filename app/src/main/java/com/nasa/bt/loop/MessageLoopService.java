@@ -6,8 +6,12 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import com.nasa.bt.BugTelegramApplication;
+import com.nasa.bt.SettingsActivity;
+import com.nasa.bt.ca.CAObject;
+import com.nasa.bt.ca.CAUtils;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.crypt.KeyUtils;
@@ -109,6 +113,8 @@ public class MessageLoopService extends Service {
 
 class ClientThread extends Thread {
 
+    private String currentIp;
+
     private MessageLoopService parent;
     private Socket socket;
     private SocketIOHelper helper;
@@ -123,6 +129,10 @@ class ClientThread extends Thread {
     public ClientThread(MessageLoopService parent) {
         this.parent = parent;
         application = (BugTelegramApplication) parent.getApplication();
+
+        currentIp = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_SERVER_IP);
+        if (TextUtils.isEmpty(currentIp))
+            currentIp = MessageLoopService.SERVER_IP_DEFAULT;
     }
 
     private synchronized void changeConnectionStatus(int newStatus){
@@ -169,7 +179,12 @@ class ClientThread extends Thread {
 
             changeConnectionStatus(MessageLoopService.STATUS_CONNECTING);//重连中
 
-            doProcess();
+
+            try {
+                doProcess();
+            }catch (OutOfMemoryError e){
+
+            }
 
             try {
                 for (int i = 0; i < tryTime; i++) {
@@ -183,35 +198,141 @@ class ClientThread extends Thread {
         log.info("监听线程结束（自然死亡）");
     }
 
+    private String getNeed(){
+        String need=SocketIOHelper.NEED_PUB_KEY+",";
+        if(LocalSettingsUtils.readBoolean(parent,LocalSettingsUtils.FIELD_FORCE_CA))
+            need+=SocketIOHelper.NEED_CA;
+        return need;
+    }
+
+    private ParamBuilder prepareHandShakeParam(String need){
+        ParamBuilder result=new ParamBuilder();
+        if(need.contains(SocketIOHelper.NEED_PUB_KEY)){
+            result.putParam(SocketIOHelper.NEED_PUB_KEY,KeyUtils.getCurrentKeySet().getPub());
+        }
+        if(need.contains(SocketIOHelper.NEED_CA)){
+            String caStr=CAUtils.readCAFile(parent);
+            result.putParam(SocketIOHelper.NEED_CA,caStr);
+        }
+
+        return result;
+    }
+
+    private boolean checkHandShakeParam(Map<String,String> params,String myNeed){
+        /**
+         * 如果有问题就返回false，没问题就跳过
+         */
+        String dstPubKey=params.get(SocketIOHelper.NEED_PUB_KEY);
+        if(myNeed.contains(SocketIOHelper.NEED_PUB_KEY)){
+            if(TextUtils.isEmpty(dstPubKey)){
+                log.error("对方公钥为空");
+                return false;
+            }
+
+            helper.initRSACryptModule(dstPubKey,KeyUtils.getCurrentKeySet().getPri());
+        }
+        if(myNeed.contains(SocketIOHelper.NEED_CA)){
+            String ca=params.get(SocketIOHelper.NEED_CA);
+            if(TextUtils.isEmpty(ca)){
+                log.error("证书为空");
+                return false;
+            }
+
+            CAObject caObject=CAUtils.stringToCAObject(ca);
+            if(!CAUtils.checkCA(caObject,currentIp,dstPubKey)){
+                return false;
+            }
+
+        }
+
+        return true;
+    }
+
+    private boolean doHandShake(){
+        String feedback=Datagram.HANDSHAKE_FEEDBACK_SUCCESS;
+        /**
+         * 1.发送需求
+         * 2.获取需求
+         * 3.发送对方需要的
+         * 4.接收自己需要的
+         * 5.反馈握手信息（如 成功 证书错误 等）
+         */
+        String myNeed=getNeed();
+        if(!helper.sendNeed(myNeed)){
+            log.error("发送需求失败");
+            return false;
+        }
+
+        String dstNeed;
+        if((dstNeed=helper.readNeed())==null){
+            log.error("读取对方需求失败");
+            return false;
+        }
+
+        ParamBuilder handShakeParam=prepareHandShakeParam(dstNeed);
+        if(!helper.sendHandShakeParam(handShakeParam)){
+            log.error("发送握手参数失败");
+            return false;
+        }
+
+        Map<String,String> params;
+        if((params=helper.readHandShakeParam())==null){
+            log.error("读取对方握手参数失败");
+            return false;
+        }
+
+        if(!checkHandShakeParam(params,myNeed)){
+            log.error("参数检查失败");
+
+            Intent intent=new Intent(parent, SettingsActivity.class);
+            intent.putExtra("toast","校验服务器证书失败，如需要连接则需关闭服务器证书校验");
+            parent.startActivity(intent);
+            stopConnection();
+
+            feedback=Datagram.HANDSHAKE_FEEDBACK_CA_WRONG;
+            helper.sendFeedback(feedback);
+            return false;
+        }
+
+        helper.sendFeedback(feedback);
+
+        return true;
+    }
+
+    private boolean readHandShakeFeedback(){
+        Datagram datagram=helper.readHandShakeFeedback();
+        String feedback=datagram.getParamsAsString().get("feedback");
+        if(TextUtils.isEmpty(feedback))
+            return false;
+
+        if(feedback.equalsIgnoreCase(Datagram.HANDSHAKE_FEEDBACK_SUCCESS)){
+            return true;
+        }else if(feedback.equalsIgnoreCase(Datagram.HANDSHAKE_FEEDBACK_CA_WRONG)){
+
+            Intent intent=new Intent(parent, SettingsActivity.class);
+            intent.putExtra("toast","本地证书有误，请检查");
+            parent.startActivity(intent);
+            stopConnection();
+
+            return false;
+        }
+        return false;
+    }
+
     private void doProcess() {
         try {
-            String ip = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_SERVER_IP);
-            if (TextUtils.isEmpty(ip))
-                ip = MessageLoopService.SERVER_IP_DEFAULT;
-
             socket = new Socket();
-            socket.connect(new InetSocketAddress(ip, MessageLoopService.SERVER_PORT), 10000);
+            socket.connect(new InetSocketAddress(currentIp, MessageLoopService.SERVER_PORT), 10000);
             helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
 
-            while (true) {
-                //接受对方传来的公钥
-                Datagram datagram = helper.readIs();
-                if (datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE)) {
-                    log.info("已收到服务器公钥");
-                    break;
-                }
+            if(!doHandShake())
+                return;
+            //读取反馈
+            if(!readHandShakeFeedback())
+                return;
 
-            }
 
-            KeyUtils.initContext(parent);
-            KeyUtils keyUtils = KeyUtils.getInstance();
-            helper.setPrivateKey(keyUtils.getPri());
-            while (!helper.sendPublicKey(keyUtils.getPub())) {
-                log.info("向服务器发送公钥失败，1秒后将再次尝试");
-                Thread.sleep(1000);
-            }
-
-            log.info("公钥交换完成，开始进行身份验证");
+            log.info("握手完成，开始进行身份验证");
             if (!doAuth()) {
                 log.info("身份验证失败（本地原因），准备重连");
                 return;

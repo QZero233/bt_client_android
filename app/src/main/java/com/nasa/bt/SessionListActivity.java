@@ -1,10 +1,12 @@
 package com.nasa.bt;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -12,6 +14,7 @@ import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.support.v4.widget.ViewDragHelper;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -52,6 +55,7 @@ import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 /**
@@ -228,6 +232,33 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
 
         tv_name=nv.getHeaderView(0).findViewById(R.id.tv_name);
         setDrawerHeadText();
+
+        setDrawerLeftEdgeSize(this,dl,0.3F);
+    }
+
+    private void setDrawerLeftEdgeSize (Activity activity, DrawerLayout drawerLayout, float displayWidthPercentage) {
+        if (activity == null || drawerLayout == null) return;
+        try {
+            // 找到 ViewDragHelper 并设置 Accessible 为true
+            Field leftDraggerField =
+                    drawerLayout.getClass().getDeclaredField("mLeftDragger");//Right
+            leftDraggerField.setAccessible(true);
+            ViewDragHelper leftDragger = (ViewDragHelper) leftDraggerField.get(drawerLayout);
+
+            // 找到 edgeSizeField 并设置 Accessible 为true
+            Field edgeSizeField = leftDragger.getClass().getDeclaredField("mEdgeSize");
+            edgeSizeField.setAccessible(true);
+            int edgeSize = edgeSizeField.getInt(leftDragger);
+
+            // 设置新的边缘大小
+            Point displaySize = new Point();
+            activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
+            edgeSizeField.setInt(leftDragger, Math.max(edgeSize, (int) (displaySize.x *
+                    displayWidthPercentage)));
+        } catch (NoSuchFieldException e) {
+        } catch (IllegalArgumentException e) {
+        } catch (IllegalAccessException e) {
+        }
     }
 
     @Override

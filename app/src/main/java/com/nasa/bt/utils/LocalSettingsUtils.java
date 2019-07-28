@@ -15,6 +15,8 @@ public class LocalSettingsUtils {
     public static final String FIELD_NAME_LAST="nameLast";
     public static final String FIELD_CODE_LAST="codeLast";
 
+    public static final String FIELD_FORCE_CA="forceCA";
+
 
     public static boolean save(Context context,String field, String value){
         SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);
@@ -26,6 +28,11 @@ public class LocalSettingsUtils {
         return sharedPreferences.edit().putInt(field,value).commit();
     }
 
+    public static boolean saveBoolean(Context context,String field,boolean value){
+        SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);
+        return sharedPreferences.edit().putBoolean(field,value).commit();
+    }
+
     public static String read(Context context,String field){
         SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);
         return sharedPreferences.getString(field,null);
@@ -34,6 +41,11 @@ public class LocalSettingsUtils {
     public static int readInt(Context context,String field){
         SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);
         return sharedPreferences.getInt(field,0);
+    }
+
+    public static boolean readBoolean(Context context,String field){
+        SharedPreferences sharedPreferences=context.getSharedPreferences(FILE_NAME,Context.MODE_PRIVATE);
+        return sharedPreferences.getBoolean(field,false);
     }
 
 }

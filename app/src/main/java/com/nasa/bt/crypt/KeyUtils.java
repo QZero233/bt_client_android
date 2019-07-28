@@ -10,58 +10,44 @@ import java.io.File;
 
 public class KeyUtils {
 
-    private static KeyUtils instance;
     private static Context context;
+    private static RSAKeySet currentKeySet;
 
-    private static final String KEY_STORE_FILE_NAME="keyPairs.data";
+    private static final String KEY_STORE_FILE_NAME = "keyPairs.data";
 
-    private RSAUtils rsaUtils;
 
-    private KeyUtils() {
-        File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
-        byte[] keyBuf= FileIOUtils.readFile(keyFile);
-        if(keyBuf==null || JSON.parseObject(new String(keyBuf),RSAKeySet.class)==null){
-            genKeySet();
-            saveKeySet();
-        }else{
-            RSAKeySet keySet=JSON.parseObject(new String(keyBuf),RSAKeySet.class);
-            rsaUtils=new RSAUtils(keySet);
-        }
-    }
-
-    public void genKeySet(){
-        rsaUtils=new RSAUtils(RSAUtils.genRSAKeySet());
+    public static RSAKeySet genKeySet() {
+        return RSAUtils.genRSAKeySet();
     }
 
 
-    public boolean saveKeySet(){
-        if(rsaUtils==null)
+    public static boolean saveKeySet(RSAKeySet keySet) {
+        if (keySet == null)
             return false;
 
-        RSAKeySet keySet=rsaUtils.getKeySet();
-        rsaUtils.loadKeySet(keySet);
-        String keyJSON= JSON.toJSONString(keySet);
-        File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
-        return FileIOUtils.writeFile(keyFile,keyJSON.getBytes());
+        currentKeySet = keySet;
+
+        String keyJSON = JSON.toJSONString(keySet);
+        File keyFile = new File(context.getFilesDir(), KEY_STORE_FILE_NAME);
+        return FileIOUtils.writeFile(keyFile, keyJSON.getBytes());
     }
 
-    public String getPub(){
-        return rsaUtils.getKeySet().getPub();
+    public static RSAKeySet getCurrentKeySet() {
+        return currentKeySet;
     }
 
-    public String getPri(){
-        return rsaUtils.getKeySet().getPri();
-    }
+    public static void initContext(Context appContext) {
+        context = appContext;
 
-    public static void initContext(Context appContext){
-        context=appContext;
-    }
-
-    public static KeyUtils getInstance(){
-        if(instance==null){
-            instance=new KeyUtils();
+        File keyFile = new File(context.getFilesDir(), KEY_STORE_FILE_NAME);
+        byte[] keyBuf = FileIOUtils.readFile(keyFile);
+        if (keyBuf == null || JSON.parseObject(new String(keyBuf), RSAKeySet.class) == null) {
+            RSAKeySet rsaKeySet = genKeySet();
+            saveKeySet(rsaKeySet);
+        } else {
+            RSAKeySet keySet = JSON.parseObject(new String(keyBuf), RSAKeySet.class);
+            currentKeySet = keySet;
         }
-        return instance;
     }
 
 }

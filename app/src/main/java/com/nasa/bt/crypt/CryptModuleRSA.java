@@ -2,15 +2,13 @@ package com.nasa.bt.crypt;
 
 import android.util.Base64;
 
-import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.RSAKeySet;
 
-import java.io.ByteArrayInputStream;
 import java.util.Map;
 
 public class CryptModuleRSA implements CryptModule {
 
-    private String clientPubKey=null;
+    private String dstPubKey =null;
     private String myPrivateKey=null;
 
     /**
@@ -22,14 +20,14 @@ public class CryptModuleRSA implements CryptModule {
      */
     @Override
     public byte[] doEncrypt(byte[] clearText, String key, Map<String, Object> params) {
-        if(clientPubKey==null)
+        if(dstPubKey ==null)
             return null;
 
         try {
 
             clearText= Base64.encode(clearText,Base64.NO_WRAP);
 
-            RSAKeySet keySet=new RSAKeySet(clientPubKey,null);
+            RSAKeySet keySet=new RSAKeySet(dstPubKey,null);
             RSAUtils rsaUtils=new RSAUtils(keySet);
 
             String result=rsaUtils.publicEncrypt(new String(clearText));
@@ -51,18 +49,19 @@ public class CryptModuleRSA implements CryptModule {
     @Override
     public byte[] doDecrypt(byte[] cipherText, String key, Map<String, Object> params) {
         try {
-            if(clientPubKey==null){
-                if(!new String(cipherText,0,4).equalsIgnoreCase(Datagram.IDENTIFIER_CHANGE_KEY)){
+            if(dstPubKey ==null)
+                /*if(!new String(cipherText,0,4).equalsIgnoreCase(Datagram.IDENTIFIER_CHANGE_HAND_SHAKE_PARAM)){
                     return null;
                 }
                 ByteArrayInputStream inputStream=new ByteArrayInputStream(cipherText);
                 inputStream.skip(4);
                 byte[] keyBuf=new byte[cipherText.length-4];
                 inputStream.read(keyBuf);
-                clientPubKey=new String(keyBuf);
+                dstPubKey=new String(keyBuf);
 
+                return null;*/
                 return null;
-            }
+
 
             if(myPrivateKey==null)
                 return null;
@@ -78,7 +77,8 @@ public class CryptModuleRSA implements CryptModule {
         }
     }
 
-    public void setMyPrivateKey(String key){
-        myPrivateKey=key;
+    public void initKeys(String dstPubKey,String myPriKey){
+        this.dstPubKey=dstPubKey;
+        this.myPrivateKey=myPriKey;
     }
 }

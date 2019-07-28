@@ -21,9 +21,7 @@ public class Datagram implements Serializable {
 
     public static final String IDENTIFIER_MARK_READ="MKRD";
 
-
     public static final String IDENTIFIER_NONE="NONE";
-    public static final String IDENTIFIER_CHANGE_KEY="CHKY";
 
     public static final String IDENTIFIER_CREATE_SESSION="CRSS";
     public static final String IDENTIFIER_SESSIONS_INDEX="GISS";
@@ -42,6 +40,9 @@ public class Datagram implements Serializable {
     public static final String IDENTIFIER_UPGRADE_DETAIL="UGDE";
 
     public static final String IDENTIFIER_USER_INFO_MINE="UIMI";
+
+    public static final String HANDSHAKE_FEEDBACK_SUCCESS="SUCCESS";
+    public static final String HANDSHAKE_FEEDBACK_CA_WRONG="CA_WRONG";
 
     public static final int ID_LENGTH=36;
 

@@ -40,6 +40,26 @@
             android:layout_marginEnd="8dp"
             android:onClick="logOut"
             android:text="退出登录" />
+
+        <Button
+            android:id="@+id/button8"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:onClick="setClientCA"
+            android:text="设置客户端证书" />
+
+        <Switch
+            android:id="@+id/sw_ca"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:text="验证服务器CA证书" />
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>
