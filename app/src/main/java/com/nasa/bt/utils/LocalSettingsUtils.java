@@ -15,6 +15,8 @@ public class LocalSettingsUtils {
     public static final String FIELD_NAME_LAST="nameLast";
     public static final String FIELD_CODE_LAST="codeLast";
 
+    public static final String FIELD_CURRENT_KEY_SET_INDEX="currentKeySetIndex";
+
     public static final String FIELD_FORCE_CA="forceCA";
 
 

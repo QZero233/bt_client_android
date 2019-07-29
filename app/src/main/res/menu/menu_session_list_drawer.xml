@@ -9,9 +9,15 @@
     </group>
     <group android:id="@+id/m_group_key" >
         <item
+            android:id="@+id/m_key_set"
             android:icon="@mipmap/key_set"
             android:title="管理RSA密钥对" />
         <item
+            android:id="@+id/m_key_set_connection"
+            android:icon="@mipmap/manage_connection_key"
+            android:title="查看连接用密钥对公钥" />
+        <item
+            android:id="@+id/m_ca"
             android:icon="@mipmap/ca"
             android:title="生成CA证书" />
     </group>

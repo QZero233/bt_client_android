@@ -10,44 +10,43 @@ import java.io.File;
 
 public class KeyUtils {
 
+    private static KeyUtils instance;
     private static Context context;
-    private static RSAKeySet currentKeySet;
 
-    private static final String KEY_STORE_FILE_NAME = "keyPairs.data";
+    private static final String KEY_STORE_FILE_NAME="keySetForConnection.data";
 
-
-    public static RSAKeySet genKeySet() {
-        return RSAUtils.genRSAKeySet();
+    public static RSAKeySet read(){
+        File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
+        byte[] keyBuf= FileIOUtils.readFile(keyFile);
+        if(keyBuf==null)
+            return null;
+        RSAKeySet keySet=JSON.parseObject(new String(keyBuf),RSAKeySet.class);
+        return keySet;
     }
 
+    public static void initContext(Context appContext){
+        context=appContext;
+        if(read()==null){
+            RSAKeySet keySet=RSAUtils.genRSAKeySet();
+            save(keySet);
+        }
+    }
 
-    public static boolean saveKeySet(RSAKeySet keySet) {
-        if (keySet == null)
+    public static boolean save(RSAKeySet keySet){
+        if(keySet==null)
             return false;
 
-        currentKeySet = keySet;
 
-        String keyJSON = JSON.toJSONString(keySet);
-        File keyFile = new File(context.getFilesDir(), KEY_STORE_FILE_NAME);
-        return FileIOUtils.writeFile(keyFile, keyJSON.getBytes());
+        String keyJSON= JSON.toJSONString(keySet);
+        File keyFile=new File(context.getFilesDir(),KEY_STORE_FILE_NAME);
+        return FileIOUtils.writeFile(keyFile,keyJSON.getBytes());
     }
 
-    public static RSAKeySet getCurrentKeySet() {
-        return currentKeySet;
-    }
-
-    public static void initContext(Context appContext) {
-        context = appContext;
-
-        File keyFile = new File(context.getFilesDir(), KEY_STORE_FILE_NAME);
-        byte[] keyBuf = FileIOUtils.readFile(keyFile);
-        if (keyBuf == null || JSON.parseObject(new String(keyBuf), RSAKeySet.class) == null) {
-            RSAKeySet rsaKeySet = genKeySet();
-            saveKeySet(rsaKeySet);
-        } else {
-            RSAKeySet keySet = JSON.parseObject(new String(keyBuf), RSAKeySet.class);
-            currentKeySet = keySet;
+    public static KeyUtils getInstance(){
+        if(instance==null){
+            instance=new KeyUtils();
         }
+        return instance;
     }
 
 }

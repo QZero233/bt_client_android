@@ -33,6 +33,7 @@ import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
+import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
@@ -273,6 +274,17 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                 break;
             case R.id.m_about:
                 Toast.makeText(this,"某勤奋的作者：此功能未完成（手动滑稽）",Toast.LENGTH_SHORT).show();
+                break;
+            case R.id.m_key_set:
+                startActivity(new Intent(this,RSAKeyManagerActivity.class));
+                break;
+            case R.id.m_ca:
+                startActivity(new Intent(this,CAGenActivity.class));
+                break;
+            case R.id.m_key_set_connection:
+                Intent intent=new Intent(this,MessageReadActivity.class);
+                intent.putExtra("message", KeyUtils.read().getPub());
+                startActivity(intent);
                 break;
         }
         return false;

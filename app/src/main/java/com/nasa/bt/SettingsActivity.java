@@ -13,9 +13,10 @@ import android.widget.Switch;
 import android.widget.Toast;
 
 import com.nasa.bt.ca.CAUtils;
-import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.RSAKeySet;
+import com.nasa.bt.crypt.AppKeyStore;
 import com.nasa.bt.crypt.KeyUtils;
+import com.nasa.bt.crypt.RSAUtils;
 import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.loop.MessageLoopUtils;
@@ -80,15 +81,12 @@ public class SettingsActivity extends AppCompatActivity implements CompoundButto
     }
 
     public void resetRSAKeySet(View v){
-        try {
-            RSAKeySet rsaKeySet=KeyUtils.genKeySet();
-            KeyUtils.saveKeySet(rsaKeySet);
-
+        RSAKeySet keySet= RSAUtils.genRSAKeySet();
+        if(KeyUtils.save(keySet)){
             MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
-
             Toast.makeText(this, "重置成功", Toast.LENGTH_SHORT).show();
             finish();
-        } catch (Exception e) {
+        }else{
             Toast.makeText(this, "重置失败", Toast.LENGTH_SHORT).show();
         }
     }

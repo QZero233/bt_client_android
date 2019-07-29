@@ -6,7 +6,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-import android.widget.Toast;
 
 import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.SettingsActivity;
@@ -14,6 +13,7 @@ import com.nasa.bt.ca.CAObject;
 import com.nasa.bt.ca.CAUtils;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
+import com.nasa.bt.crypt.AppKeyStore;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.socket.SocketIOHelper;
@@ -208,7 +208,7 @@ class ClientThread extends Thread {
     private ParamBuilder prepareHandShakeParam(String need){
         ParamBuilder result=new ParamBuilder();
         if(need.contains(SocketIOHelper.NEED_PUB_KEY)){
-            result.putParam(SocketIOHelper.NEED_PUB_KEY,KeyUtils.getCurrentKeySet().getPub());
+            result.putParam(SocketIOHelper.NEED_PUB_KEY, KeyUtils.read().getPub());
         }
         if(need.contains(SocketIOHelper.NEED_CA)){
             String caStr=CAUtils.readCAFile(parent);
@@ -229,7 +229,7 @@ class ClientThread extends Thread {
                 return false;
             }
 
-            helper.initRSACryptModule(dstPubKey,KeyUtils.getCurrentKeySet().getPri());
+            helper.initRSACryptModule(dstPubKey,KeyUtils.read().getPri());
         }
         if(myNeed.contains(SocketIOHelper.NEED_CA)){
             String ca=params.get(SocketIOHelper.NEED_CA);
@@ -251,12 +251,23 @@ class ClientThread extends Thread {
     private boolean doHandShake(){
         String feedback=Datagram.HANDSHAKE_FEEDBACK_SUCCESS;
         /**
+         * 0.发送需求参数
          * 1.发送需求
          * 2.获取需求
          * 3.发送对方需要的
          * 4.接收自己需要的
          * 5.反馈握手信息（如 成功 证书错误 等）
          */
+        ParamBuilder needParam=new ParamBuilder();
+        needParam.putParam("name",LocalSettingsUtils.read(parent,LocalSettingsUtils.FIELD_NAME));
+        if(!helper.sendNeedParam(needParam)){
+            log.error("发送需求参数失败");
+            return false;
+        }
+
+        Map<String,String> needParamServer=helper.readNeedParam();
+
+
         String myNeed=getNeed();
         if(!helper.sendNeed(myNeed)){
             log.error("发送需求失败");

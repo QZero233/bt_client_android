@@ -29,7 +29,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginEnd="8dp"
             android:onClick="resetRSAKeySet"
-            android:text="重置RSA密钥对" />
+            android:text="重置连接用RSA密钥对" />
 
         <Button
             android:id="@+id/button9"

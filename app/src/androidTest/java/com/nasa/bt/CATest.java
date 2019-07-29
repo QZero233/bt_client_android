@@ -6,7 +6,7 @@ import android.support.test.InstrumentationRegistry;
 import com.nasa.bt.ca.CABasic;
 import com.nasa.bt.ca.CAObject;
 import com.nasa.bt.ca.CAUtils;
-import com.nasa.bt.crypt.KeyUtils;
+import com.nasa.bt.crypt.AppKeyStore;
 import com.nasa.bt.crypt.SHA256Utils;
 import com.nasa.bt.log.AppLogConfigurator;
 
@@ -17,35 +17,34 @@ import org.junit.Test;
 public class CATest {
 
     public static final String SERVER_PUB_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl25SnsKTpQxsJCWpS9eKO2aAlgcfUXc3YK3S5QHNwptxM5GUvYilUjrLvcoaaQsfoxuc5JeBhAKAkRhtAsIis6/4sSsLJuOKMCE8wotkkgF6QJRW8SUnYS/MdFfgdPg11Hc+wZnUSycv4GBfykuW89tKxFK8xYKhLSaJHWPAJbGEvtR0G2ixOGrfSKFNIX8tytCfIzTO31ZCfdMyMp5dnbEwbLC/SRqCdJ4T2stVRjJ/C545NHdKsmAhvuMEffrk6vJRbpqqw65QTK6pHxwcM9YPPqmQ9lBUzI6d6aNxBqiUcTiRwIqltStooDI6VTZx6zUQ66Dhdl0O+l2R2hf/lQIDAQAB";
-
+    private AppKeyStore keyStore;
 
     private static final Logger log= AppLogConfigurator.getLogger();
 
     @Before
     public void initKeyUtils(){
         Context context=InstrumentationRegistry.getTargetContext();
-        KeyUtils.initContext(context);
-
-        CAUtils.addTrustedPubKey(KeyUtils.getCurrentKeySet().getPub());
+        keyStore=AppKeyStore.getInstance();
+        keyStore.initKeyStore(context);
     }
 
     @Test
     public void outputCurrentKey(){
-        log.info(KeyUtils.getCurrentKeySet().getPub());
+        log.info(keyStore.getConnectionKeySet().getPub());
     }
 
     @Test
     public void testGenCA(){
         CABasic caBasic=new CABasic("10.0.2.2", SHA256Utils.getSHA256InHex(SERVER_PUB_KEY),0,null);
-        CAObject caObject=CAUtils.genCA(caBasic,KeyUtils.getCurrentKeySet());
+        CAObject caObject=CAUtils.genCA(caBasic, keyStore.getConnectionKeySet());
         String caStr=CAUtils.caObjectToString(caObject);
         log.info(caStr);
     }
 
     @Test
     public void testGenCAFroClient(){
-        CABasic caBasic=new CABasic(null, SHA256Utils.getSHA256InHex(KeyUtils.getCurrentKeySet().getPub()),0,null);
-        CAObject caObject=CAUtils.genCA(caBasic,KeyUtils.getCurrentKeySet());
+        CABasic caBasic=new CABasic(null, SHA256Utils.getSHA256InHex(keyStore.getConnectionKeySet().getPub()),0,null);
+        CAObject caObject=CAUtils.genCA(caBasic, keyStore.getConnectionKeySet());
         String caStr=CAUtils.caObjectToString(caObject);
         log.info(caStr);
     }
