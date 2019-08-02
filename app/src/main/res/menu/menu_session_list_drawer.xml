@@ -19,7 +19,7 @@
         <item
             android:id="@+id/m_ca"
             android:icon="@mipmap/ca"
-            android:title="生成CA证书" />
+            android:title="证书安全中心" />
     </group>
     <group android:id="@+id/m_group_system">
         <item

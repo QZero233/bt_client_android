@@ -81,4 +81,8 @@ public class CryptModuleRSA implements CryptModule {
         this.dstPubKey=dstPubKey;
         this.myPrivateKey=myPriKey;
     }
+
+    public String getDstPubKey() {
+        return dstPubKey;
+    }
 }

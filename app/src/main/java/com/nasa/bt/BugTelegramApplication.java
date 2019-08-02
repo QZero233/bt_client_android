@@ -2,6 +2,7 @@ package com.nasa.bt;
 
 import android.app.Application;
 
+import com.nasa.bt.ca.CAUtils;
 import com.nasa.bt.crypt.AppKeyStore;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.log.AppLogConfigurator;
@@ -26,6 +27,7 @@ public class BugTelegramApplication extends Application {
         MessageLoopUtils.initContext(this);
         AppKeyStore.getInstance().initKeyStore(this);
         KeyUtils.initContext(this);
+        CAUtils.initContext(this);
     }
 
 }

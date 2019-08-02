@@ -214,6 +214,15 @@ public class SocketIOHelper {
     }
 
     /**
+     * 读取输入流，默认不需要解密
+     * @return
+     * @throws RuntimeException
+     */
+    public Datagram readIsNotEncrypted() throws RuntimeException{
+        return readIs(false);
+    }
+
+    /**
      * 根据数据包对象写输出流
      * @param datagram 数据包对象
      * @param encrypt 是否调用模块加密
@@ -282,57 +291,21 @@ public class SocketIOHelper {
         return writeOs(datagram,true);
     }
 
+    /**
+     * 写输出流，默认不需要加密
+     * @param datagram
+     * @return
+     * @throws IllegalArgumentException
+     */
+    public boolean writeOsNotEncrypt(Datagram datagram) throws IllegalArgumentException{
+        return writeOs(datagram,false);
+    }
+
     public void initRSACryptModule(String dstPubKey,String myPriKey){
         ((CryptModuleRSA)cryptModule).initKeys(dstPubKey,myPriKey);
     }
 
-    public boolean sendNeed(String need){
-        ParamBuilder paramBuilder=new ParamBuilder().putParam("need",need);
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,paramBuilder.build());
-        return writeOs(datagram,false);
+    public String getRSACryptModuleDstKey(){
+        return ((CryptModuleRSA)cryptModule).getDstPubKey();
     }
-
-    public String readNeed(){
-        Datagram datagram=readIs(false);
-        if(datagram==null || !datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE))
-            return null;
-
-        String need=datagram.getParamsAsString().get("need");
-        return need;
-    }
-
-    public Map<String,String> readHandShakeParam(){
-        Datagram datagram=readIs(false);
-        if(datagram==null || !datagram.getIdentifier().equalsIgnoreCase(Datagram.IDENTIFIER_NONE))
-            return null;
-
-        return datagram.getParamsAsString();
-    }
-
-    public boolean sendHandShakeParam(ParamBuilder param){
-        if(param==null)
-            return false;
-
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,param.build());
-        return writeOs(datagram,false);
-    }
-
-    public Datagram readHandShakeFeedback(){
-        return readIs(false);
-    }
-
-    public boolean sendFeedback(String feedback){
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,new ParamBuilder().putParam("feedback",feedback).build());
-        return writeOs(datagram,false);
-    }
-
-    public boolean sendNeedParam(ParamBuilder needParam){
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_NONE,needParam.build());
-        return writeOs(datagram,false);
-    }
-
-    public Map<String,String> readNeedParam(){
-        return readIs(false).getParamsAsString();
-    }
-
 }

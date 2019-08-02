@@ -8,14 +8,10 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
 import com.nasa.bt.BugTelegramApplication;
-import com.nasa.bt.SettingsActivity;
-import com.nasa.bt.ca.CAObject;
-import com.nasa.bt.ca.CAUtils;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
-import com.nasa.bt.crypt.AppKeyStore;
-import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.log.AppLogConfigurator;
+import com.nasa.bt.socket.ClientHandShakeHelper;
 import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
@@ -179,10 +175,11 @@ class ClientThread extends Thread {
 
             changeConnectionStatus(MessageLoopService.STATUS_CONNECTING);//重连中
 
-
             try {
                 doProcess();
-            }catch (OutOfMemoryError e){
+            }catch (Error e){
+
+            }catch (Exception e){
 
             }
 
@@ -198,149 +195,16 @@ class ClientThread extends Thread {
         log.info("监听线程结束（自然死亡）");
     }
 
-    private String getNeed(){
-        String need=SocketIOHelper.NEED_PUB_KEY+",";
-        if(LocalSettingsUtils.readBoolean(parent,LocalSettingsUtils.FIELD_FORCE_CA))
-            need+=SocketIOHelper.NEED_CA;
-        return need;
-    }
-
-    private ParamBuilder prepareHandShakeParam(String need){
-        ParamBuilder result=new ParamBuilder();
-        if(need.contains(SocketIOHelper.NEED_PUB_KEY)){
-            result.putParam(SocketIOHelper.NEED_PUB_KEY, KeyUtils.read().getPub());
-        }
-        if(need.contains(SocketIOHelper.NEED_CA)){
-            String caStr=CAUtils.readCAFile(parent);
-            result.putParam(SocketIOHelper.NEED_CA,caStr);
-        }
-
-        return result;
-    }
-
-    private boolean checkHandShakeParam(Map<String,String> params,String myNeed){
-        /**
-         * 如果有问题就返回false，没问题就跳过
-         */
-        String dstPubKey=params.get(SocketIOHelper.NEED_PUB_KEY);
-        if(myNeed.contains(SocketIOHelper.NEED_PUB_KEY)){
-            if(TextUtils.isEmpty(dstPubKey)){
-                log.error("对方公钥为空");
-                return false;
-            }
-
-            helper.initRSACryptModule(dstPubKey,KeyUtils.read().getPri());
-        }
-        if(myNeed.contains(SocketIOHelper.NEED_CA)){
-            String ca=params.get(SocketIOHelper.NEED_CA);
-            if(TextUtils.isEmpty(ca)){
-                log.error("证书为空");
-                return false;
-            }
-
-            CAObject caObject=CAUtils.stringToCAObject(ca);
-            if(!CAUtils.checkCA(caObject,currentIp,dstPubKey)){
-                return false;
-            }
-
-        }
-
-        return true;
-    }
-
-    private boolean doHandShake(){
-        String feedback=Datagram.HANDSHAKE_FEEDBACK_SUCCESS;
-        /**
-         * 0.发送需求参数
-         * 1.发送需求
-         * 2.获取需求
-         * 3.发送对方需要的
-         * 4.接收自己需要的
-         * 5.反馈握手信息（如 成功 证书错误 等）
-         */
-        ParamBuilder needParam=new ParamBuilder();
-        needParam.putParam("name",LocalSettingsUtils.read(parent,LocalSettingsUtils.FIELD_NAME));
-        if(!helper.sendNeedParam(needParam)){
-            log.error("发送需求参数失败");
-            return false;
-        }
-
-        Map<String,String> needParamServer=helper.readNeedParam();
-
-
-        String myNeed=getNeed();
-        if(!helper.sendNeed(myNeed)){
-            log.error("发送需求失败");
-            return false;
-        }
-
-        String dstNeed;
-        if((dstNeed=helper.readNeed())==null){
-            log.error("读取对方需求失败");
-            return false;
-        }
-
-        ParamBuilder handShakeParam=prepareHandShakeParam(dstNeed);
-        if(!helper.sendHandShakeParam(handShakeParam)){
-            log.error("发送握手参数失败");
-            return false;
-        }
-
-        Map<String,String> params;
-        if((params=helper.readHandShakeParam())==null){
-            log.error("读取对方握手参数失败");
-            return false;
-        }
-
-        if(!checkHandShakeParam(params,myNeed)){
-            log.error("参数检查失败");
-
-            Intent intent=new Intent(parent, SettingsActivity.class);
-            intent.putExtra("toast","校验服务器证书失败，如需要连接则需关闭服务器证书校验");
-            parent.startActivity(intent);
-            stopConnection();
-
-            feedback=Datagram.HANDSHAKE_FEEDBACK_CA_WRONG;
-            helper.sendFeedback(feedback);
-            return false;
-        }
-
-        helper.sendFeedback(feedback);
-
-        return true;
-    }
-
-    private boolean readHandShakeFeedback(){
-        Datagram datagram=helper.readHandShakeFeedback();
-        String feedback=datagram.getParamsAsString().get("feedback");
-        if(TextUtils.isEmpty(feedback))
-            return false;
-
-        if(feedback.equalsIgnoreCase(Datagram.HANDSHAKE_FEEDBACK_SUCCESS)){
-            return true;
-        }else if(feedback.equalsIgnoreCase(Datagram.HANDSHAKE_FEEDBACK_CA_WRONG)){
-
-            Intent intent=new Intent(parent, SettingsActivity.class);
-            intent.putExtra("toast","本地证书有误，请检查");
-            parent.startActivity(intent);
-            stopConnection();
-
-            return false;
-        }
-        return false;
-    }
-
     private void doProcess() {
         try {
             socket = new Socket();
             socket.connect(new InetSocketAddress(currentIp, MessageLoopService.SERVER_PORT), 10000);
             helper = new SocketIOHelper(socket.getInputStream(), socket.getOutputStream());
 
-            if(!doHandShake())
+            ClientHandShakeHelper handShakeHelper=new ClientHandShakeHelper(parent,helper,currentIp);
+            if(!handShakeHelper.doHandShake())
                 return;
-            //读取反馈
-            if(!readHandShakeFeedback())
-                return;
+
 
 
             log.info("握手完成，开始进行身份验证");

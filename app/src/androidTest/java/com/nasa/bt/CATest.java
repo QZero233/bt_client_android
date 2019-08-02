@@ -28,26 +28,6 @@ public class CATest {
         keyStore.initKeyStore(context);
     }
 
-    @Test
-    public void outputCurrentKey(){
-        log.info(keyStore.getConnectionKeySet().getPub());
-    }
-
-    @Test
-    public void testGenCA(){
-        CABasic caBasic=new CABasic("10.0.2.2", SHA256Utils.getSHA256InHex(SERVER_PUB_KEY),0,null);
-        CAObject caObject=CAUtils.genCA(caBasic, keyStore.getConnectionKeySet());
-        String caStr=CAUtils.caObjectToString(caObject);
-        log.info(caStr);
-    }
-
-    @Test
-    public void testGenCAFroClient(){
-        CABasic caBasic=new CABasic(null, SHA256Utils.getSHA256InHex(keyStore.getConnectionKeySet().getPub()),0,null);
-        CAObject caObject=CAUtils.genCA(caBasic, keyStore.getConnectionKeySet());
-        String caStr=CAUtils.caObjectToString(caObject);
-        log.info(caStr);
-    }
 
     @Test
     public void testVerifyCA(){

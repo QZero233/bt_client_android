@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/m_trusted_remote_key"
+        android:title="信任的服务器公钥" />
+    <item
+        android:id="@+id/m_trusted_key"
+        android:title="信任的证书签发公钥" />
+    <item
+        android:id="@+id/m_gen_ca"
+        android:title="生成证书" />
+</menu>

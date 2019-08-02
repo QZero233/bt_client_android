@@ -38,7 +38,6 @@ import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.data.dao.MessageDao;
 import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
-import com.nasa.bt.data.entity.ContactEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
@@ -161,7 +160,6 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             return;
         }
 
-
         LocalDatabaseHelper.reset(this);
 
         startService(new Intent(this, MessageLoopService.class));
@@ -279,7 +277,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
                 startActivity(new Intent(this,RSAKeyManagerActivity.class));
                 break;
             case R.id.m_ca:
-                startActivity(new Intent(this,CAGenActivity.class));
+                startActivity(new Intent(this,CACenterActivity.class));
                 break;
             case R.id.m_key_set_connection:
                 Intent intent=new Intent(this,MessageReadActivity.class);

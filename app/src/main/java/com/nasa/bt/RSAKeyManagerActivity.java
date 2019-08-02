@@ -29,7 +29,6 @@ import com.nasa.bt.utils.LocalSettingsUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public class RSAKeyManagerActivity extends AppCompatActivity implements View.OnLongClickListener, AdapterView.OnItemSelectedListener {
 
@@ -44,7 +43,7 @@ public class RSAKeyManagerActivity extends AppCompatActivity implements View.OnL
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_rsakey_manager);
+        setContentView(R.layout.activity_rsa_key_manager);
 
         tv_pub=findViewById(R.id.tv_pub);
         tv_pri=findViewById(R.id.tv_pri);

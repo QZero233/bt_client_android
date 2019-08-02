@@ -10,6 +10,8 @@ import com.j256.ormlite.table.TableUtils;
 import com.nasa.bt.data.entity.ContactEntity;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.TrustedRemotePublicKeyEntity;
+import com.nasa.bt.data.entity.TrustedCAPublicKeyEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.utils.LocalSettingsUtils;
@@ -19,7 +21,7 @@ import org.apache.log4j.Logger;
 public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
 
     private static final String LOCAL_DB_NAME_BEGIN="appData";
-    private static final int CURRENT_VER_CODE=3;
+    private static final int CURRENT_VER_CODE=4;
 
     private static final Logger log= AppLogConfigurator.getLogger();
 
@@ -59,6 +61,8 @@ public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
             TableUtils.createTableIfNotExists(connectionSource, SessionEntity.class);
             TableUtils.createTableIfNotExists(connectionSource, UserInfoEntity.class);
             TableUtils.createTableIfNotExists(connectionSource, ContactEntity.class);
+            TableUtils.createTableIfNotExists(connectionSource, TrustedRemotePublicKeyEntity.class);
+            TableUtils.createTableIfNotExists(connectionSource, TrustedCAPublicKeyEntity.class);
         }catch (Exception e){
             log.error("使用ORM建表时错误",e);
         }
@@ -84,6 +88,17 @@ public class LocalDatabaseHelper extends OrmLiteSqliteOpenHelper {
                 TableUtils.createTableIfNotExists(connectionSource,ContactEntity.class);
             }catch (Exception e){
                 log.error("升级版本 2—>3 时异常",e);
+            }
+        }else if(oldVer==3){
+            /**
+             * 1.增加了 TrustedRemotePublicKeyEntity 这个实体类
+             * 2.增加了 TrustedCAPublicKeyEntity 这个实体类
+             */
+            try {
+                TableUtils.createTableIfNotExists(connectionSource, TrustedRemotePublicKeyEntity.class);
+                TableUtils.createTableIfNotExists(connectionSource, TrustedCAPublicKeyEntity.class);
+            }catch (Exception e){
+                log.error("升级版本 3—>4 时异常",e);
             }
         }
     }

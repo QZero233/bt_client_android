@@ -8,6 +8,7 @@ import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.RSAKeySet;
 import com.nasa.bt.crypt.RSAUtils;
 import com.nasa.bt.crypt.SHA256Utils;
+import com.nasa.bt.data.dao.CADao;
 import com.nasa.bt.utils.FileIOUtils;
 
 import java.io.File;
@@ -20,6 +21,8 @@ public class CAUtils {
      * 默认到期时间 2021-01-01 00:00:00
      */
     private static final long END_TIME_DEFAULT=1609430400000L;
+
+    private static Context context;
 
     /**
      * 信任的证书公钥，k为公钥hash,v为公钥
@@ -62,6 +65,7 @@ public class CAUtils {
         if(!SHA256Utils.getSHA256InHex(pubKeyReceived).equalsIgnoreCase(caBasic.getServerPubKeyHashInHex()))
             return false;
 
+        //检查签名
         String trustedPubKey=trustedKeyList.get(caObject.getCaBasic().getSignPubKeyHashInHex());
         if(TextUtils.isEmpty(trustedPubKey))
             return false;
@@ -70,7 +74,7 @@ public class CAUtils {
         String caHash=SHA256Utils.getSHA256InHex(caStr);
 
         RSAUtils rsaUtils=new RSAUtils(new RSAKeySet(trustedPubKey,null));
-        String caSignDecrypted=null;
+        String caSignDecrypted;
         try{
             caSignDecrypted=rsaUtils.publicDecrypt(caObject.getSign());
         }catch (Exception e){
@@ -143,11 +147,15 @@ public class CAUtils {
         }
     }
 
-    public static boolean writeCAFile(Context context,String caStr){
+    public static void initContext(Context context){
+        CAUtils.context=context;
+    }
+
+    public static boolean writeCAFile(String caStr){
         return FileIOUtils.writeFile(new File(context.getFilesDir(),CA_FILE_NAME),caStr.getBytes());
     }
 
-    public static String readCAFile(Context context){
+    public static String readCAFile(){
         byte[] buf=FileIOUtils.readFile(new File(context.getFilesDir(),CA_FILE_NAME));
         if(buf==null)
             return null;

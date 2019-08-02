@@ -17,10 +17,14 @@ import com.nasa.bt.cls.RSAKeySet;
 import com.nasa.bt.crypt.AppKeyStore;
 import com.nasa.bt.crypt.KeyUtils;
 import com.nasa.bt.crypt.RSAUtils;
+import com.nasa.bt.crypt.SHA256Utils;
 import com.nasa.bt.data.LocalDatabaseHelper;
+import com.nasa.bt.data.dao.CADao;
+import com.nasa.bt.data.entity.TrustedRemotePublicKeyEntity;
 import com.nasa.bt.loop.MessageLoopService;
 import com.nasa.bt.loop.MessageLoopUtils;
 import com.nasa.bt.loop.SendDatagramUtils;
+import com.nasa.bt.socket.SocketIOHelper;
 import com.nasa.bt.utils.LocalSettingsUtils;
 
 public class SettingsActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener {
@@ -39,9 +43,40 @@ public class SettingsActivity extends AppCompatActivity implements CompoundButto
         sw_ca.setOnCheckedChangeListener(this);
 
         Intent intent=getIntent();
-        String toast=intent.getStringExtra("toast");
-        if(!TextUtils.isEmpty(toast))
-            Toast.makeText(this,toast,Toast.LENGTH_SHORT).show();
+
+        int event=intent.getIntExtra("event",-1);
+        if(event!=-1){
+            if(event==1){
+                //本地证书错误
+                Toast.makeText(this,"本地证书错误，请检查是否正确",Toast.LENGTH_SHORT).show();
+            }else if(event==2){
+                //服务器证书错误
+                final String pubKey=intent.getStringExtra(SocketIOHelper.NEED_PUB_KEY);
+                final String ip=intent.getStringExtra("ip");
+                if(TextUtils.isEmpty(pubKey) || TextUtils.isEmpty(ip)){
+                    Toast.makeText(this,"服务器证书验证失败，若需要连接必须关闭服务器证书校验（会带来安全隐患）",Toast.LENGTH_SHORT).show();
+                }else{
+                    AlertDialog.Builder builder=new AlertDialog.Builder(this);
+                    builder.setTitle("服务器证书校验失败").setMessage("服务器证书校验失败\n若需要连接需信任该服务器公钥或关闭服务器证书校验\n" +
+                            "当前服务器公钥的SHA256指纹：\n"+ SHA256Utils.getSHA256InHex(pubKey));
+                    builder.setNegativeButton("取消",null).setPositiveButton("信任", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            CADao caDao=new CADao(getApplicationContext());
+                            if(caDao.addTrustedRemoteKey(new TrustedRemotePublicKeyEntity(ip,pubKey))){
+                                Toast.makeText(getApplicationContext(),"信任公钥成功",Toast.LENGTH_SHORT).show();
+                                MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
+                                finish();
+                            }else
+                                Toast.makeText(getApplicationContext(),"操作失败",Toast.LENGTH_SHORT).show();
+
+                        }
+                    });
+                    builder.setCancelable(false);
+                    builder.show();
+                }
+            }
+        }
     }
 
     @Override
@@ -108,8 +143,8 @@ public class SettingsActivity extends AppCompatActivity implements CompoundButto
 
         final EditText et_ca=new EditText(this);
 
-        if(CAUtils.readCAFile(this)!=null)
-            et_ca.setText(CAUtils.readCAFile(this));
+        if(CAUtils.readCAFile()!=null)
+            et_ca.setText(CAUtils.readCAFile());
 
         builder.setView(et_ca);
         builder.setNegativeButton("取消",null).setPositiveButton("设置", new DialogInterface.OnClickListener() {
@@ -117,7 +152,7 @@ public class SettingsActivity extends AppCompatActivity implements CompoundButto
             public void onClick(DialogInterface dialogInterface, int i) {
                 String caStr=et_ca.getText().toString();
 
-                CAUtils.writeCAFile(SettingsActivity.this,caStr);
+                CAUtils.writeCAFile(caStr);
                 Toast.makeText(SettingsActivity.this,"设置成功",Toast.LENGTH_SHORT).show();
                 MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT);
 

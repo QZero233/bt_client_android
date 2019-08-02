@@ -13,7 +13,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".CAGenActivity"></activity>
+        <activity android:name=".CACenterActivity"></activity>
         <activity android:name=".RSAKeyManagerActivity" />
         <activity android:name=".SettingsActivity" />
         <activity android:name=".SessionDetailActivity" />
