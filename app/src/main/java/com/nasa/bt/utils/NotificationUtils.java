@@ -9,6 +9,7 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.NotificationCompat;
@@ -62,13 +63,14 @@ public class NotificationUtils extends ContextWrapper {
         return new Notification.Builder(getApplicationContext(), id)
                 .setContentTitle(title)
                 .setContentText(content)
-                .setSmallIcon(android.R.drawable.stat_notify_more)
+                .setSmallIcon(R.drawable.bt_icon_notification)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(),R.mipmap.bt_icon))
                 .setAutoCancel(true);
     }
 
     private Notification.Builder getNotification_25(String title, String content){
         return new Notification.Builder(this).setTicker("123").
-                setSmallIcon(R.mipmap.ic_launcher).setLargeIcon( BitmapFactory.decodeResource(getResources(),R.mipmap.ic_launcher))
+                setSmallIcon(R.mipmap.ic_launcher_bt).setLargeIcon( BitmapFactory.decodeResource(getResources(),R.mipmap.ic_launcher_bt))
                 .setContentText(content).setContentTitle(title);
     }
 
@@ -143,5 +145,10 @@ public class NotificationUtils extends ContextWrapper {
                         new Intent(this, SessionListActivity.class),PendingIntent.FLAG_UPDATE_CURRENT));
             }
         }
+    }
+
+    public void sendTestNotification(){
+        sendNotification("test","testContent",PendingIntent.getActivity(this,0,
+                new Intent(this, SessionListActivity.class),PendingIntent.FLAG_UPDATE_CURRENT));
     }
 }
