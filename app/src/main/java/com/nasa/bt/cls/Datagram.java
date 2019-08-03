@@ -29,12 +29,10 @@ public class Datagram implements Serializable {
     public static final String IDENTIFIER_DELETE_SESSION="DESS";
     public static final String IDENTIFIER_UPDATE_SESSION="UPSS";
 
+    public static final String IDENTIFIER_UPDATE_RECORD="UPRD";
+
     public static final String IDENTIFIER_REFRESH="REFE";
     public static final String IDENTIFIER_SYNC="SYNC";
-
-    public static final String IDENTIFIER_UPDATE_INDEX="UPID";
-    public static final String IDENTIFIER_UPDATE_DETAIL="UPDE";
-    public static final String IDENTIFIER_DELETE_UPDATE="DEUP";
 
     public static final String IDENTIFIER_UPGRADE_VER_CODE="VERC";
     public static final String IDENTIFIER_UPGRADE_DETAIL="UGDE";

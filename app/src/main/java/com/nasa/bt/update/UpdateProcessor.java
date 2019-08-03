@@ -5,7 +5,7 @@ import android.content.Context;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
 import com.nasa.bt.data.dao.SessionDao;
-import com.nasa.bt.data.entity.UpdateEntity;
+import com.nasa.bt.data.entity.UpdateRecordEntity;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.loop.SendDatagramUtils;
 
@@ -15,29 +15,24 @@ public class UpdateProcessor {
 
     private static final Logger log= AppLogConfigurator.getLogger();
 
-    public static boolean processUpdate(UpdateEntity updateEntity, Context context){
-        int type=updateEntity.getType();
-        if(type==UpdateEntity.TYPE_SESSION_CREATE){
-            log.debug("会话添加，收到更新");
-            String newSessionId=updateEntity.getMore();
-            Datagram datagram=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",newSessionId).build());
-            SendDatagramUtils.sendDatagram(datagram);
-            return true;
-        }else if(type==UpdateEntity.TYPE_SESSION_DELETE){
-            log.debug("会话被删除，收到更新");
-            String deleteSessionId=updateEntity.getMore();
-            SessionDao sessionDao=new SessionDao(context);
-            return sessionDao.setSessionDisabled(deleteSessionId);
-        }else if(type==UpdateEntity.TYPE_SESSION_UPDATED){
-            log.debug("会话被更新，收到更新");
-            String sessionId=updateEntity.getMore();
-            Datagram datagram=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",sessionId).build());
-            SendDatagramUtils.sendDatagram(datagram);
-            return true;
-        }
+        public static void processUpdate(UpdateRecordEntity updateRecordEntity, Context context){
+        int type=updateRecordEntity.getEntityType();
+        if(type==UpdateRecordEntity.TYPE_SESSION){
+            String sessionId=updateRecordEntity.getEntityId();
+            if(updateRecordEntity.getEntityStatus()==UpdateRecordEntity.STATUS_DELETED){
+                //会话被删除
+                log.debug("会话被删除，会话id="+sessionId);
+                SessionDao sessionDao=new SessionDao(context);
+                sessionDao.setSessionDisabled(sessionId);
+            }else{
+                //会话被更改
+                log.debug("收到一个会话更新，会话id="+sessionId);
+                Datagram datagram=new Datagram(Datagram.IDENTIFIER_SESSION_DETAIL,new ParamBuilder().putParam("session_id",sessionId).build());
+                SendDatagramUtils.sendDatagram(datagram);
+            }
 
-        //未知类型，返回处理失败
-        return false;
+
+        }
     }
 
 }

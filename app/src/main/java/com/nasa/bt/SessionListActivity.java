@@ -41,6 +41,7 @@ import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
+import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.loop.ActionReportListener;
 import com.nasa.bt.loop.DatagramListener;
 import com.nasa.bt.loop.MessageLoopService;
@@ -55,6 +56,8 @@ import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
 
+import org.apache.log4j.Logger;
+
 import java.lang.reflect.Field;
 import java.util.List;
 
@@ -63,10 +66,12 @@ import java.util.List;
  */
 public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener,NavigationView.OnNavigationItemSelectedListener {
 
+    private static final Logger log= AppLogConfigurator.getLogger();
 
     private DatagramListener changedListener=new DatagramListener() {
         @Override
         public void onDatagramReach(Datagram datagram) {
+            log.debug("主窗口刷新");
             reloadSessionList();
         }
     };
@@ -171,7 +176,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_SESSION",Datagram.IDENTIFIER_SESSION_DETAIL,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_USER_INFO",Datagram.IDENTIFIER_USER_INFO,changedListener);
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPDATE",Datagram.IDENTIFIER_UPDATE_DETAIL,changedListener);
+        MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPDATE",Datagram.IDENTIFIER_UPDATE_RECORD,changedListener);
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPGRADE",Datagram.IDENTIFIER_UPGRADE_DETAIL,upgradeDetailListener);
 
         MessageLoopUtils.registerListenerNormal("SESSION_LIST_CONNECTION_STATUS",SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,connectionStatusListener);
@@ -337,7 +342,8 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         for(SessionEntity sessionEntity:sessionEntities){
             sessionIds+=sessionEntity.getSessionId();
         }
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SYNC,new ParamBuilder().putParam("session_id",sessionIds).build());
+        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SYNC,new ParamBuilder().putParam("session_id",sessionIds).
+                putParam("last_sync_time", LocalSettingsUtils.readLong(this,LocalSettingsUtils.FIELD_LAST_SYNC_TIME)+"").build());
         SendDatagramUtils.sendDatagram(datagram);
     }
 

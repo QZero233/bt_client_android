@@ -239,7 +239,7 @@ public class ChatActivity extends AppCompatActivity implements AdapterView.OnIte
     private void registerListener(){
         MessageLoopUtils.registerListenerNormal("CHAT_REPORT",Datagram.IDENTIFIER_REPORT,changedListener);
         MessageLoopUtils.registerListenerNormal("CHAR_MESSAGE_DETAIL",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
-        MessageLoopUtils.registerListenerNormal("CHAR_SESSION_UPDATE",Datagram.IDENTIFIER_UPDATE_DETAIL,sessionListener);
+        MessageLoopUtils.registerListenerNormal("CHAR_SESSION_UPDATE",Datagram.IDENTIFIER_UPDATE_RECORD,sessionListener);
     }
 
     private void unregisterListener(){

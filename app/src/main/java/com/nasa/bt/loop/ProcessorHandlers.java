@@ -1,6 +1,7 @@
 package com.nasa.bt.loop;
 
 import android.content.Context;
+import android.text.TextUtils;
 
 import com.alibaba.fastjson.JSON;
 import com.nasa.bt.cls.ActionReport;
@@ -11,11 +12,10 @@ import com.nasa.bt.data.dao.SessionDao;
 import com.nasa.bt.data.dao.UserInfoDao;
 import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
-import com.nasa.bt.data.entity.UpdateEntity;
+import com.nasa.bt.data.entity.UpdateRecordEntity;
 import com.nasa.bt.data.entity.UserInfoEntity;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.update.UpdateProcessor;
-import com.nasa.bt.upgrade.UpgradeStatus;
 import com.nasa.bt.upgrade.UpgradeUtils;
 import com.nasa.bt.utils.LocalSettingsUtils;
 import com.nasa.bt.utils.NotificationUtils;
@@ -23,6 +23,7 @@ import com.nasa.bt.utils.NotificationUtils;
 import org.apache.log4j.Logger;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ProcessorHandlers {
@@ -202,42 +203,6 @@ public class ProcessorHandlers {
         }
     };
 
-    private DatagramListener defaultUpdateIndexListener=new DatagramListener() {
-        @Override
-        public void onDatagramReach(Datagram datagram) {
-            Map<String,String> params=datagram.getParamsAsString();
-            String indexes=params.get("update_id");
-            for(int i=0;i<indexes.length()/ID_LENGTH;i++){
-                String subId=indexes.substring(i*ID_LENGTH,(i+1)*ID_LENGTH);
-                if(!checkSent(subId))
-                    continue;
-
-                Datagram datagramGet=new Datagram(Datagram.IDENTIFIER_UPDATE_DETAIL,new ParamBuilder().putParam("update_id",subId).build());
-                SendDatagramUtils.sendDatagram(datagramGet);
-                addSent(subId);
-            }
-        }
-    };
-
-    private DatagramListener defaultUpdateDetailListener=new DatagramListener() {
-        @Override
-        public void onDatagramReach(Datagram datagram) {
-            Map<String,String> params=datagram.getParamsAsString();
-            UpdateEntity updateEntity=JSON.parseObject(params.get("update"),UpdateEntity.class);
-
-            if(updateEntity==null)
-                return;
-
-            removeSent(updateEntity.getUpdateId());
-
-            log.debug("收到更新 "+updateEntity);
-            if(UpdateProcessor.processUpdate(updateEntity,context)){
-                Datagram datagramDelete=new Datagram(Datagram.IDENTIFIER_DELETE_UPDATE,new ParamBuilder().putParam("update_id",updateEntity.getUpdateId()).build());
-                SendDatagramUtils.sendDatagram(datagramDelete);
-            }
-        }
-    };
-
     private DatagramListener defaultUpgradeVerCodeListener=new DatagramListener() {
         @Override
         public void onDatagramReach(Datagram datagram) {
@@ -260,6 +225,56 @@ public class ProcessorHandlers {
         }
     };
 
+    private DatagramListener defaultRefreshListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            SendDatagramUtils.sendDatagram(datagram);
+        }
+    };
+
+    private DatagramListener defaultSyncListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            List<SessionEntity> sessionEntities=sessionDao.getAllSession();
+            String sessionIds="";
+            for(SessionEntity sessionEntity:sessionEntities){
+                sessionIds+=sessionEntity.getSessionId();
+            }
+            Datagram datagramSend=new Datagram(Datagram.IDENTIFIER_SYNC,new ParamBuilder().putParam("session_id",sessionIds).
+                    putParam("last_sync_time", LocalSettingsUtils.readLong(context,LocalSettingsUtils.FIELD_LAST_SYNC_TIME)+"").build());
+            SendDatagramUtils.sendDatagram(datagramSend);
+        }
+    };
+
+    private DatagramListener defaultUpdateRecordListener=new DatagramListener() {
+        @Override
+        public void onDatagramReach(Datagram datagram) {
+            String updateRecordString=datagram.getParamsAsString().get("update_record");
+            if(TextUtils.isEmpty(updateRecordString))
+                return;
+            UpdateRecordEntity updateRecordEntity=JSON.parseObject(updateRecordString,UpdateRecordEntity.class);
+            if(updateRecordEntity==null)
+                return;
+
+            UpdateProcessor.processUpdate(updateRecordEntity,context);
+        }
+    };
+
+    private ActionReportListener defaultSyncReportListener=new ActionReportListener() {
+        @Override
+        public void onActionReportReach(ActionReport actionReport) {
+            if(actionReport.getActionStatusInBoolean()){
+                long time=System.currentTimeMillis();
+                try {
+                    time=Long.parseLong(actionReport.getMore());
+                }catch (Exception e){
+
+                }
+                LocalSettingsUtils.saveLong(context,LocalSettingsUtils.FIELD_LAST_SYNC_TIME,time);
+            }
+        }
+    };
+
     public ProcessorHandlers(Context context) {
         this.context = context;
 
@@ -275,15 +290,17 @@ public class ProcessorHandlers {
         MessageLoopUtils.registerListenerDefault("DEFAULT_MESSAGE_INDEX",Datagram.IDENTIFIER_MESSAGE_INDEX,defaultMessageIndexListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_SESSION_INDEX",Datagram.IDENTIFIER_SESSIONS_INDEX,defaultSessionIndexListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_SESSION_DETAIL",Datagram.IDENTIFIER_SESSION_DETAIL,defaultSessionInfoListener);
-        MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_INDEX",Datagram.IDENTIFIER_UPDATE_INDEX,defaultUpdateIndexListener);
-        MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_DETAIL",Datagram.IDENTIFIER_UPDATE_DETAIL,defaultUpdateDetailListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPGRADE_VER_CODE",Datagram.IDENTIFIER_UPGRADE_VER_CODE,defaultUpgradeVerCodeListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_UPGRADE_DETAIL",Datagram.IDENTIFIER_UPGRADE_DETAIL,defaultUpgradeDetailListener);
         MessageLoopUtils.registerListenerDefault("DEFAULT_USER_INFO_MINE",Datagram.IDENTIFIER_USER_INFO_MINE,defaultUserInfoOfMineListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_REFRESH",Datagram.IDENTIFIER_REFRESH,defaultRefreshListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_SYNC",Datagram.IDENTIFIER_SYNC,defaultSyncListener);
+        MessageLoopUtils.registerListenerDefault("DEFAULT_UPDATE_RECORD",Datagram.IDENTIFIER_UPDATE_RECORD,defaultUpdateRecordListener);
 
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_MESSAGE_STATUS",Datagram.IDENTIFIER_SEND_MESSAGE,defaultSendMessageReportListener);
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,defaultAuthReportListener);
         MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_MARK_READ_REPORT",Datagram.IDENTIFIER_MARK_READ,defaultMarkReadReportListener);
+        MessageLoopUtils.registerActionReportListenerDefault("DEFAULT_SYNC_REPORT",Datagram.IDENTIFIER_SYNC,defaultSyncReportListener);
     }
 
     private boolean checkSent(String msgId){
