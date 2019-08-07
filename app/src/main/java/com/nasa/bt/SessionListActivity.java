@@ -29,34 +29,19 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.alibaba.fastjson.JSON;
-import com.nasa.bt.cls.ActionReport;
-import com.nasa.bt.cls.Datagram;
-import com.nasa.bt.cls.ParamBuilder;
+import com.nasa.bt.contract.SessionListContract;
 import com.nasa.bt.crypt.KeyUtils;
-import com.nasa.bt.data.LocalDatabaseHelper;
-import com.nasa.bt.data.dao.MessageDao;
-import com.nasa.bt.data.dao.SessionDao;
-import com.nasa.bt.data.dao.UserInfoDao;
-import com.nasa.bt.data.entity.MessageEntity;
 import com.nasa.bt.data.entity.SessionEntity;
+import com.nasa.bt.data.entity.SessionEntityForShow;
 import com.nasa.bt.data.entity.UserInfoEntity;
-import com.nasa.bt.log.AppLogConfigurator;
-import com.nasa.bt.loop.ActionReportListener;
-import com.nasa.bt.loop.DatagramListener;
 import com.nasa.bt.loop.MessageLoopService;
-import com.nasa.bt.loop.MessageLoopUtils;
-import com.nasa.bt.loop.SendDatagramUtils;
+import com.nasa.bt.presenter.SessionListPresenter;
 import com.nasa.bt.session.JoinSessionCallback;
 import com.nasa.bt.session.SessionProcessor;
 import com.nasa.bt.session.SessionProcessorFactory;
 import com.nasa.bt.session.SessionProperties;
 import com.nasa.bt.upgrade.UpgradeStatus;
-import com.nasa.bt.utils.LocalSettingsUtils;
-import com.nasa.bt.utils.NotificationUtils;
 import com.nasa.bt.utils.TimeUtils;
-
-import org.apache.log4j.Logger;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -64,125 +49,27 @@ import java.util.List;
 /**
  * 心中有党，成绩理想
  */
-public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener,NavigationView.OnNavigationItemSelectedListener {
-
-    private static final Logger log= AppLogConfigurator.getLogger();
-
-    private DatagramListener changedListener=new DatagramListener() {
-        @Override
-        public void onDatagramReach(Datagram datagram) {
-            log.debug("主窗口刷新");
-            reloadSessionList();
-        }
-    };
-
-    private ActionReportListener syncReportListener=new ActionReportListener() {
-        @Override
-        public void onActionReportReach(ActionReport actionReport) {
-            setDrawerHeadText();
-        }
-    };
-
-    private ActionReportListener refreshReportListener=new ActionReportListener() {
-        @Override
-        public void onActionReportReach(ActionReport actionReport) {
-            new NotificationUtils(SessionListActivity.this).cancelNotification();
-            reloadSessionList();
-            if (sl_main.isRefreshing()) {
-                sl_main.setRefreshing(false);
-                Toast.makeText(SessionListActivity.this, "刷新成功", Toast.LENGTH_SHORT).show();
-            }
-            setTitle("BugTelegram内测版");
-        }
-    };
-
-    private ActionReportListener authReportListener=new ActionReportListener() {
-        @Override
-        public void onActionReportReach(ActionReport actionReport) {
-            if(!actionReport.getActionStatusInBoolean()){
-                //身份验证未通过
-                startActivity(new Intent(SessionListActivity.this,AuthInfoActivity.class));
-                finish();
-            }
-        }
-    };
-
-    private DatagramListener connectionStatusListener=new DatagramListener() {
-        @Override
-        public void onDatagramReach(Datagram datagram) {
-            int status=Integer.parseInt(datagram.getParamsAsString().get("status"));
-            switch (status){
-                case MessageLoopService.STATUS_CONNECTED:
-                    sync();
-                    refresh();
-                    break;
-                case MessageLoopService.STATUS_CONNECTING:
-                    setTitle("正在连接服务器");
-                    break;
-                case MessageLoopService.STATUS_DISCONNECTED:
-                    setTitle("已断线");
-                    break;
-            }
-        }
-    };
-
-    private DatagramListener upgradeDetailListener=new DatagramListener() {
-        @Override
-        public void onDatagramReach(Datagram datagram) {
-            String json=datagram.getParamsAsString().get("upgrade_status");
-            checkUpgrade(JSON.parseObject(json,UpgradeStatus.class));
-        }
-    };
+public class SessionListActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener, AdapterView.OnItemLongClickListener,
+        NavigationView.OnNavigationItemSelectedListener, SessionListContract.View {
 
     private ListView lv_sessions;
     private SwipeRefreshLayout sl_main;
     private TextView tv_name;
     private DrawerLayout dl;
 
-    private List<SessionEntity> sessionEntities;
+    private List<SessionEntityForShow> sessionEntities;
 
-    private SessionDao sessionDao;
-    private UserInfoDao userInfoDao;
+    private SessionListPresenter presenter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_session_list);
 
-        /**
-         * 打开主界面之后依次进行
-         * 检查更新信息
-         * 检查是否输入身份验证信息，如果没有就跳转并finish
-         * 连接服务器（无论是否已连接都重连，主窗口监听连接情况，如果身份验证失败就跳转&finish）
-         * 同步（告诉服务器本地已有的会话ID等，服务器返回客户端没有的）
-         * 刷新（服务器返回新消息或新更新）
-         */
-
-        if(!checkIfLocalAuthInfoExists()){
-            startActivity(new Intent(this, AuthInfoActivity.class));
-            Toast.makeText(this, "请设置基本信息", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-
-        LocalDatabaseHelper.reset(this);
-
-        startService(new Intent(this, MessageLoopService.class));
-
-        MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_REFRESH_REPORT",Datagram.IDENTIFIER_REFRESH,refreshReportListener);
-        MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_AUTH_REPORT",Datagram.IDENTIFIER_SIGN_IN,authReportListener);
-        MessageLoopUtils.registerActionReportListenerNormal("SESSION_LIST_SYNC_REPORT",Datagram.IDENTIFIER_SYNC,syncReportListener);
-
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_MESSAGE",Datagram.IDENTIFIER_MESSAGE_DETAIL,changedListener);
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_SESSION",Datagram.IDENTIFIER_SESSION_DETAIL,changedListener);
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_USER_INFO",Datagram.IDENTIFIER_USER_INFO,changedListener);
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPDATE",Datagram.IDENTIFIER_UPDATE_RECORD,changedListener);
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_UPGRADE",Datagram.IDENTIFIER_UPGRADE_DETAIL,upgradeDetailListener);
-
-        MessageLoopUtils.registerListenerNormal("SESSION_LIST_CONNECTION_STATUS",SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,connectionStatusListener);
-
-        sessionDao=new SessionDao(this);
-        userInfoDao=new UserInfoDao(this);
+        presenter=new SessionListPresenter(this);
+        presenter.attachView(this);
+        presenter.startListening();
+        presenter.doSync();
 
         initDrawer();
 
@@ -199,24 +86,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         });
         lv_sessions.setOnItemLongClickListener(this);
 
-        reloadSessionList();
-        setTitle("当前" + LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME));
-
-
-    }
-
-    private void setDrawerHeadText(){
-        tv_name.setText("正在同步......");
-
-        String uid=LocalSettingsUtils.read(this,LocalSettingsUtils.FIELD_UID);
-        if(TextUtils.isDigitsOnly(uid))
-            return;
-
-        UserInfoEntity userInfoEntity=userInfoDao.getUserInfoById(uid);
-        if(userInfoEntity==null)
-            return;
-
-        tv_name.setText("欢迎用户 "+userInfoEntity.getName());
+        presenter.reloadSessionList();
     }
 
     private void initDrawer(){
@@ -235,7 +105,6 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         nv.setNavigationItemSelectedListener(this);
 
         tv_name=nv.getHeaderView(0).findViewById(R.id.tv_name);
-        setDrawerHeadText();
 
         setDrawerLeftEdgeSize(this,dl,0.3F);
     }
@@ -293,7 +162,39 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         return false;
     }
 
-    private boolean  checkUpgrade(final UpgradeStatus upgradeStatus){
+    private void refresh(){
+        presenter.doRefresh();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        presenter.stopListening();
+        presenter.detachView();
+    }
+
+    @Override
+    public void changeRefreshStatus(boolean isRefreshing) {
+        sl_main.setRefreshing(isRefreshing);
+    }
+
+    @Override
+    public void reloadSessionList(List<SessionEntityForShow> sessionEntityList) {
+        this.sessionEntities=sessionEntityList;
+        lv_sessions.setAdapter(new SessionListAdapter(sessionEntities,this));
+    }
+
+    @Override
+    public void setDrawerHeadInfo(String name) {
+        if(name==null)
+            tv_name.setText("正在加载.....");
+        else
+            tv_name.setText(name);
+    }
+
+    @Override
+    public void showUpgradeInfo(final UpgradeStatus upgradeStatus) {
         if(upgradeStatus!=null){
             AlertDialog.Builder builder=new AlertDialog.Builder(SessionListActivity.this);
             builder.setTitle("发现新版本 "+upgradeStatus.getNewestName());
@@ -317,58 +218,57 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
             });
             builder.setCancelable(false);
             builder.show();
-            return true;
         }
-        return false;
-    }
-
-    private boolean checkIfLocalAuthInfoExists(){
-        String name = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_NAME);
-        String code = LocalSettingsUtils.read(this, LocalSettingsUtils.FIELD_CODE_HASH);
-        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(code)) {
-            return false;
-        }
-        return true;
-    }
-
-    private void refresh(){
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_REFRESH,null);
-        SendDatagramUtils.sendDatagram(datagram);
-        setTitle("刷新中......");
-    }
-
-    private void sync(){
-        String sessionIds="";
-        for(SessionEntity sessionEntity:sessionEntities){
-            sessionIds+=sessionEntity.getSessionId();
-        }
-        Datagram datagram=new Datagram(Datagram.IDENTIFIER_SYNC,new ParamBuilder().putParam("session_id",sessionIds).
-                putParam("last_sync_time", LocalSettingsUtils.readLong(this,LocalSettingsUtils.FIELD_LAST_SYNC_TIME)+"").build());
-        SendDatagramUtils.sendDatagram(datagram);
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        MessageLoopUtils.unregisterListener("SESSION_LIST_REFRESH_REPORT");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_AUTH_REPORT");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_SYNC_REPORT");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_MESSAGE");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_SESSION");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_USER_INFO");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_UPDATE");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_UPGRADE");
-        MessageLoopUtils.unregisterListener("SESSION_LIST_CONNECTION_STATUS");
+    public void onConnectionStatusChanged(int status) {
+        switch (status){
+            case MessageLoopService.STATUS_CONNECTED:
+                setTitle("已连接");
+                break;
+            case MessageLoopService.STATUS_CONNECTING:
+                setTitle("正在连接服务器");
+                break;
+            case MessageLoopService.STATUS_DISCONNECTED:
+                setTitle("已断线");
+                break;
+        }
     }
 
-    private void reloadSessionList() {
-        sessionEntities=sessionDao.getAllSession();
-        lv_sessions.setAdapter(new SessionListAdapter(sessionEntities,this));
+    @Override
+    public void onSyncFailure() {
+        showToast("因未知原因同步失败");
+        setTitle("同步失败");
+    }
+
+    @Override
+    public void onSyncSuccess() {
+
+    }
+
+    @Override
+    public void onRefreshFailure() {
+        showToast("因未知原因刷新失败");
+        setTitle("刷新失败");
+    }
+
+    @Override
+    public void onRefreshSuccess() {
+        if (sl_main.isRefreshing()) {
+            sl_main.setRefreshing(false);
+            Toast.makeText(SessionListActivity.this, "刷新成功", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onAuthFailed() {
+        startActivity(new Intent(SessionListActivity.this,AuthInfoActivity.class));
+        finish();
     }
 
     private void startChat(final int index) {
-        final SessionEntity sessionEntity = sessionEntities.get(index);
+        final SessionEntity sessionEntity = sessionEntities.get(index).getSessionEntity();
         SessionProcessor processor= SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
         if(processor==null)
             return;
@@ -390,7 +290,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     @Override
     protected void onRestart() {
         super.onRestart();
-        reloadSessionList();
+        presenter.reloadSessionList();
     }
 
     @Override
@@ -401,7 +301,7 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
     @Override
     public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
         Intent intent = new Intent(this, SessionDetailActivity.class);
-        intent.putExtra("sessionEntity", sessionEntities.get(i));
+        intent.putExtra("sessionEntity", sessionEntities.get(i).getSessionEntity());
         startActivity(intent);
         return true;
     }
@@ -413,21 +313,22 @@ public class SessionListActivity extends AppCompatActivity implements SwipeRefre
         }else
             super.onBackPressed();
     }
+
+
+    @Override
+    public void showToast(String content) {
+        Toast.makeText(this,content,Toast.LENGTH_SHORT).show();
+    }
 }
 
 class SessionListAdapter extends BaseAdapter {
 
-    private List<SessionEntity> sessionEntities;
+    private List<SessionEntityForShow> sessionEntities;
     private Context context;
-    private MessageDao messageDao;
-    private UserInfoDao userInfoDao;
 
-    public SessionListAdapter(List<SessionEntity> sessionEntities, Context context) {
+    public SessionListAdapter(List<SessionEntityForShow> sessionEntities, Context context) {
         this.sessionEntities = sessionEntities;
         this.context = context;
-
-        messageDao=new MessageDao(context);
-        userInfoDao=new UserInfoDao(context);
     }
 
     @Override
@@ -447,10 +348,19 @@ class SessionListAdapter extends BaseAdapter {
         return 0;
     }
 
-
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
-        SessionEntity sessionEntity = sessionEntities.get(i);
+        SessionEntityForShow sessionEntityForShow = sessionEntities.get(i);
+
+        SessionEntity sessionEntity=sessionEntityForShow.getSessionEntity();
+        UserInfoEntity userInfoEntity=sessionEntityForShow.getUserInfoEntity();
+        int unreadMessageCount=sessionEntityForShow.getUnreadMessageCount();
+
+        if(sessionEntity==null || userInfoEntity==null){
+            View v=new View(context);
+            return v;
+        }
+
         SessionProcessor processor=SessionProcessorFactory.getProcessor(sessionEntity.getSessionType());
         SessionProperties sessionProperties=processor.getSessionProperties();
         if(processor==null)
@@ -463,10 +373,9 @@ class SessionListAdapter extends BaseAdapter {
         TextView tv_time = v.findViewById(R.id.tv_time);
         TextView tv_remarks=v.findViewById(R.id.tv_remarks);
 
-        String dstUid = sessionEntity.getIdOfOther(LocalSettingsUtils.read(context, LocalSettingsUtils.FIELD_UID));
+        tv_name.setText(userInfoEntity.getName()+sessionProperties.getMainNameEndWith());
 
-        List<MessageEntity> messageEntities =messageDao.getUnreadMessageBySessionId(sessionEntity.getSessionId());
-        if (messageEntities == null || messageEntities.isEmpty()) {
+        if (unreadMessageCount==0) {
             if (TextUtils.isEmpty(sessionEntity.getLastMessage())) {
                 tv_msg.setText("无消息");
                 tv_time.setVisibility(View.GONE);
@@ -475,17 +384,12 @@ class SessionListAdapter extends BaseAdapter {
                 tv_time.setText(TimeUtils.toStandardTime(sessionEntity.getLastTime()));
             }
         } else {
-            tv_msg.setText("有 " + messageEntities.size() + " 条未读消息");
+            tv_msg.setText("有 " + unreadMessageCount + " 条未读消息");
             tv_msg.setTextColor(Color.RED);
-            tv_time.setText(TimeUtils.toStandardTime(messageEntities.get(0).getTime()));
+            tv_time.setText(TimeUtils.toStandardTime(sessionEntityForShow.getLastUnreadMessage().getTime()));
         }
 
-        UserInfoEntity userInfoEntity =userInfoDao.getUserInfoById(dstUid);
-        if (userInfoEntity != null)
-            tv_name.setText(userInfoEntity.getName()+sessionProperties.getMainNameEndWith());
-        else {
-            tv_name.setText("未知用户");
-        }
+
         if(sessionProperties.getSessionTextColor()!=-1)
             tv_name.setTextColor(sessionProperties.getSessionTextColor());
 
@@ -499,7 +403,6 @@ class SessionListAdapter extends BaseAdapter {
         }else{
             tv_remarks.setText("备注:"+remarks);
         }
-
 
         return v;
     }

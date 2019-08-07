@@ -21,7 +21,7 @@ public class MessageLoopUtils {
 
     private static Map<String, BroadcastReceiver> registered = new HashMap<>();
     private static Context context;
-    private static LocalBroadcastManager localBroadcastManager;
+    //private static LocalBroadcastManager localBroadcastManager;
 
     public static final String ACTION_BEGIN_WITH = "com.nasa.bt.Datagram.";
 
@@ -31,7 +31,7 @@ public class MessageLoopUtils {
 
     public static void initContext(Context c) {
         context = c;
-        localBroadcastManager = LocalBroadcastManager.getInstance(c);
+        //localBroadcastManager = LocalBroadcastManager.getInstance(c);
     }
 
     public static void registerListener(String id, String identifier, int priority, final DatagramListener listener) {
@@ -51,7 +51,9 @@ public class MessageLoopUtils {
             }
         };
 
-        localBroadcastManager.registerReceiver(receiver, intentFilter);
+        //TODO 安全性问题以后再说
+        context.registerReceiver(receiver,intentFilter);
+        //localBroadcastManager.registerReceiver(receiver, intentFilter);
         registered.put(id,receiver);
     }
 
@@ -127,7 +129,7 @@ public class MessageLoopUtils {
 
     public static void unregisterListener(String id) {
         if (registered.get(id) != null) {
-            localBroadcastManager.unregisterReceiver(registered.get(id));
+            context.unregisterReceiver(registered.get(id));
             registered.remove(id);
         }
     }
@@ -137,7 +139,7 @@ public class MessageLoopUtils {
             return;
         Intent intent = new Intent(ACTION_BEGIN_WITH + datagram.getIdentifier());
         intent.putExtra("datagram", datagram);
-        localBroadcastManager.sendBroadcast(intent);
+        context.sendOrderedBroadcast(intent,null);
     }
 
     public static void sendLocalDatagram(String identifier) {
@@ -147,6 +149,6 @@ public class MessageLoopUtils {
     public static void sendLocalDatagram(String identifier, ParamBuilder param) {
         Intent intent = new Intent(ACTION_BEGIN_WITH + identifier);
         intent.putExtra("datagram",new Datagram(identifier,param.build()));
-        localBroadcastManager.sendBroadcast(intent);
+        context.sendOrderedBroadcast(intent,null);
     }
 }

@@ -10,6 +10,7 @@ import android.text.TextUtils;
 import com.nasa.bt.BugTelegramApplication;
 import com.nasa.bt.cls.Datagram;
 import com.nasa.bt.cls.ParamBuilder;
+import com.nasa.bt.data.LocalDatabaseHelper;
 import com.nasa.bt.log.AppLogConfigurator;
 import com.nasa.bt.socket.ClientHandShakeHelper;
 import com.nasa.bt.socket.SocketIOHelper;
@@ -37,7 +38,6 @@ public class MessageLoopService extends Service {
 
     public ClientThread connection;
 
-
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -53,34 +53,31 @@ public class MessageLoopService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        rebind();
-
         final BugTelegramApplication application = (BugTelegramApplication) getApplication();
 
-        MessageLoopUtils.registerListenerDefault("SERVICE_RECONNECT", SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT, new DatagramListener() {
-            @Override
-            public void onDatagramReach(Datagram datagram) {
-                //线程自然死亡后软重连会无效，只能硬重连
-                if (!application.isThreadRunning()) {
-                    connection = new ClientThread(MessageLoopService.this);
-                    connection.start();
-                    application.setThreadRunningStatus(true);
-                } else
-                    connection.reconnect();
-            }
-        });
-
-        MessageLoopUtils.registerListenerDefault("SERVICE_DISCONNECT", SendDatagramUtils.INBOX_IDENTIFIER_DISCONNECTED, new DatagramListener() {
-            @Override
-            public void onDatagramReach(Datagram datagram) {
-                connection.stopConnection();
-            }
-        });
-
         if (!application.isThreadRunning()) {
+            rebind();
+
             connection = new ClientThread(this);
             connection.start();
             application.setThreadRunningStatus(true);
+
+            MessageLoopUtils.registerListenerDefault("SERVICE_RECONNECT", SendDatagramUtils.INBOX_IDENTIFIER_RECONNECT, new DatagramListener() {
+                @Override
+                public void onDatagramReach(Datagram datagram) {
+                    LocalDatabaseHelper.reset(getApplicationContext());
+                    //线程自然死亡后软重连会无效，只能硬重连
+                    connection.reconnect();
+                }
+            });
+
+            MessageLoopUtils.registerListenerDefault("SERVICE_DISCONNECT", SendDatagramUtils.INBOX_IDENTIFIER_DISCONNECTED, new DatagramListener() {
+                @Override
+                public void onDatagramReach(Datagram datagram) {
+                    connection.stopConnection();
+                }
+            });
+
         }else{
             MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_CONNECTION_STATUS,new ParamBuilder().putParam("status",String.valueOf(STATUS_CONNECTED)));
         }
@@ -114,7 +111,7 @@ class ClientThread extends Thread {
     private MessageLoopService parent;
     private Socket socket;
     private SocketIOHelper helper;
-    private boolean running = true;
+    private Boolean running = true;
 
     private int tryTime = 0;
 
@@ -140,6 +137,7 @@ class ClientThread extends Thread {
         application.setThreadRunningStatus(false);
 
         running = false;
+
         try {
             socket.close();
         } catch (Exception e) {
@@ -150,9 +148,11 @@ class ClientThread extends Thread {
     public synchronized void reconnect() {
         log.debug("收到手动重连通知，开始手动重连");
         tryTime = 0;
+
         try {
             socket.close();
         } catch (Exception e) {
+
         }
 
         parent.rebind();
@@ -164,7 +164,7 @@ class ClientThread extends Thread {
 
         Looper.prepare();
 
-        while (running) {
+        do {
             changeConnectionStatus(MessageLoopService.STATUS_DISCONNECTED);//
 
             tryTime++;
@@ -174,6 +174,7 @@ class ClientThread extends Thread {
             log.info("因未知原因断线，" + tryTime + "秒后将尝试重连");
 
             changeConnectionStatus(MessageLoopService.STATUS_CONNECTING);//重连中
+
 
             try {
                 doProcess();
@@ -190,12 +191,15 @@ class ClientThread extends Thread {
             } catch (Exception e) {
 
             }
-        }
+        }while(running);
 
+        application.setThreadRunningStatus(false);
         log.info("监听线程结束（自然死亡）");
     }
 
-    private void doProcess() {
+
+
+    private synchronized void doProcess() {
         try {
             socket = new Socket();
             socket.connect(new InetSocketAddress(currentIp, MessageLoopService.SERVER_PORT), 10000);
@@ -205,11 +209,11 @@ class ClientThread extends Thread {
             if(!handShakeHelper.doHandShake())
                 return;
 
-
-
             log.info("握手完成，开始进行身份验证");
             if (!doAuth()) {
-                log.info("身份验证失败（本地原因），准备重连");
+                log.info("身份验证失败（本地原因），断开连接");
+                running=false;
+                stopConnection();
                 return;
             }
 
@@ -237,6 +241,7 @@ class ClientThread extends Thread {
         String code = LocalSettingsUtils.read(parent, LocalSettingsUtils.FIELD_CODE_HASH);
 
         if (TextUtils.isEmpty(name) && TextUtils.isEmpty(code)) {
+            MessageLoopUtils.sendLocalDatagram(SendDatagramUtils.INBOX_IDENTIFIER_AUTH_INFO_LOST);
             return false;
         }
 
@@ -250,7 +255,7 @@ class ClientThread extends Thread {
     }
 
     public boolean sendDatagram(Datagram datagram) {
-        if (socket.isClosed() || !socket.isConnected())
+        if (socket==null || socket.isClosed() || !socket.isConnected())
             return false;
 
         try {

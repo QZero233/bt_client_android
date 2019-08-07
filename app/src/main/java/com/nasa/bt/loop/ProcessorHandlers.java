@@ -82,6 +82,8 @@ public class ProcessorHandlers {
     private DatagramListener defaultMessageListener=new DatagramListener() {
         @Override
         public void onDatagramReach(Datagram datagram) {
+            log.debug("DEFAULT MESSAGE EXECUTED");
+
             Map<String,String> params=datagram.getParamsAsString();
             MessageEntity messageEntityGot = JSON.parseObject(params.get("msg"), MessageEntity.class);
             messageEntityGot.setStatus(MessageEntity.STATUS_UNREAD);

@@ -14,6 +14,8 @@ public class SendDatagramUtils {
     public static final String INBOX_IDENTIFIER_RECONNECT="IN_RECO";
     public static final String INBOX_IDENTIFIER_CONNECTION_STATUS="IN_COST";
 
+    public static final String INBOX_IDENTIFIER_AUTH_INFO_LOST="IN_AUST";
+
     private static final Logger log= AppLogConfigurator.getLogger();
 
     public static List<Datagram> unsent=new ArrayList<>();
